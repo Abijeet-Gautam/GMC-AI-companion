@@ -32,8 +32,10 @@ export default function PrivacyPage() {
               checks and interpretation, with response storage disabled in our
               generation requests. OpenAI processes that request under its own
               data policies. In offline mode we use local keyword matching and a
-              curated sentence instead. We do not store your original aspiration
-              in the database or publish it verbatim.
+              curated sentence instead. With the consent you give before
+              submitting, your original words are retained privately for staff
+              review. Email addresses, phone-like numbers and links are redacted
+              before the message is encrypted. Only the approved leaf is public.
             </p>
           </section>
           <section>
@@ -41,13 +43,18 @@ export default function PrivacyPage() {
               What stays on the host laptop
             </h2>
             <p>
-              Approved leaves, anonymous request fingerprints for safe retries,
+              Approved leaves, encrypted private messages and moderation
+              outcomes, anonymous request fingerprints for safe retries,
               short-lived rate-limit counters, staff action records and
               aggregate counts are stored in a local SQLite database. A signed
               anonymous browser cookie helps limit repeat submissions. Staff
               sign-in uses a separate cookie that expires after eight hours. The
               display caches approved leaves on its browser for up to one day to
-              recover from outages.
+              recover from outages. An unfinished form is kept in this browser
+              tab's session storage so a refresh does not lose your draft. Staff
+              can delete private words in the console; doing so also hides the
+              linked public leaf. Older contributions created before private
+              history was enabled do not have recoverable original words.
             </p>
           </section>
           <section>

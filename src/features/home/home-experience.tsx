@@ -63,6 +63,7 @@ export function HomeExperience() {
           <TreeCanvas
             leaves={tree?.leaves || []}
             illustrative={!tree?.leaves.length}
+            settings={tree?.settings}
             className="w-full pt-9"
           />
           <span className="absolute bottom-8 serif text-sm italic text-[#d4c69e]">

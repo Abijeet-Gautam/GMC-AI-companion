@@ -121,5 +121,6 @@ export type TreeSnapshot = {
   reflection: Reflection | null;
   revision: number;
   serverTime: string;
+  settings: import("./tree-settings").TreeSettings;
 };
 export const themeFor = (id: Theme) => themes.find((theme) => theme.id === id)!;

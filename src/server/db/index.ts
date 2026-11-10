@@ -1,5 +1,11 @@
 import { DatabaseSync } from "node:sqlite";
-import { randomBytes, randomUUID } from "node:crypto";
+import {
+  randomBytes,
+  randomUUID,
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+} from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
@@ -10,6 +16,11 @@ import {
   type Reflection,
   type TreeSnapshot,
 } from "@/lib/catalog";
+import {
+  treeSettingsSchema,
+  defaultTreeSettings,
+  type TreeSettings,
+} from "@/lib/tree-settings";
 const path = resolve(
   /* turbopackIgnore: true */ process.env.DATABASE_PATH ||
     "data/living-tree.sqlite",
@@ -31,6 +42,13 @@ CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT 
 CREATE TABLE IF NOT EXISTS audit_events (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, leaf_id TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS reflection_cache (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL, mode TEXT NOT NULL, created_at TEXT NOT NULL, source_revision INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS metrics (key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);`);
+db.exec(`CREATE TABLE IF NOT EXISTS visitor_submissions (
+ id TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE, leaf_id TEXT,
+ private_message TEXT NOT NULL, selected_theme TEXT NOT NULL,
+ outcome TEXT NOT NULL CHECK(outcome IN ('approved','rejected')),
+ reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS visitor_submissions_order ON visitor_submissions(created_at DESC,id DESC);`);
 const columns = db
   .prepare("PRAGMA table_info(approved_leaves)")
   .all()
@@ -133,7 +151,12 @@ export function getByKey(key: string) {
       }
     : undefined;
 }
-export function insertLeaf(key: string, hash: string, leaf: Leaf) {
+export function insertLeaf(
+  key: string,
+  hash: string,
+  leaf: Leaf,
+  original?: { idempotencyKey: string; aspiration: string; theme: string },
+) {
   return transaction(() => {
     const result = db
       .prepare(
@@ -152,6 +175,7 @@ export function insertLeaf(key: string, hash: string, leaf: Leaf) {
         hash,
       );
     if (result.changes) {
+      if (original) recordSubmission(original, "approved", leaf.id);
       changed();
       recordMetric("accepted");
     }
@@ -218,7 +242,164 @@ export function snapshot(): TreeSnapshot {
     reflection: currentReflection(),
     revision: revision(),
     serverTime: new Date().toISOString(),
+    settings: getTreeSettings(),
   };
+}
+
+export function getTreeSettings(): TreeSettings {
+  const row = db
+    .prepare("SELECT value FROM app_meta WHERE key='tree_settings'")
+    .get();
+  if (!row) return defaultTreeSettings;
+  try {
+    return treeSettingsSchema.parse(JSON.parse(String(row.value)));
+  } catch {
+    return defaultTreeSettings;
+  }
+}
+export function saveTreeSettings(settings: TreeSettings) {
+  return transaction(() => {
+    db.prepare(
+      "INSERT INTO app_meta(key,value) VALUES('tree_settings',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+    ).run(JSON.stringify(settings));
+    db.prepare(
+      "UPDATE app_meta SET value=CAST(value AS INTEGER)+1 WHERE key='revision'",
+    ).run();
+    db.prepare(
+      "INSERT INTO audit_events(action,created_at) VALUES('tree_settings',?)",
+    ).run(new Date().toISOString());
+  });
+}
+const legacyPrivateKey = createHash("sha256")
+  .update(`visitor-messages:${sessionSecret}`)
+  .digest();
+const privateKey = process.env.MESSAGE_ENCRYPTION_KEY
+  ? createHash("sha256").update(process.env.MESSAGE_ENCRYPTION_KEY).digest()
+  : legacyPrivateKey;
+function redactPrivate(text: string) {
+  return text
+    .replace(/[\w.+-]+\s*@\s*[\w.-]+\.[a-z]{2,}/gi, "[email removed]")
+    .replace(/(?:\+?\d[\s().-]*){7,}/g, "[number removed]")
+    .replace(/https?:\/\/\S+|www\.\S+/gi, "[link removed]");
+}
+function encryptMessage(text: string) {
+  const iv = randomBytes(12),
+    cipher = createCipheriv("aes-256-gcm", privateKey, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(redactPrivate(text), "utf8"),
+    cipher.final(),
+  ]);
+  return [iv, cipher.getAuthTag(), encrypted]
+    .map((value) => value.toString("base64url"))
+    .join(".");
+}
+function decryptMessage(value: string) {
+  for (const key of [privateKey, legacyPrivateKey])
+    try {
+      const [iv, tag, body] = value
+        .split(".")
+        .map((part) => Buffer.from(part, "base64url"));
+      const decipher = createDecipheriv("aes-256-gcm", key, iv);
+      decipher.setAuthTag(tag);
+      return Buffer.concat([decipher.update(body), decipher.final()]).toString(
+        "utf8",
+      );
+    } catch {
+      /* Support messages created before the separate key was configured. */
+    }
+  return "[Message unavailable]";
+}
+export function rejectedSubmission(key: string) {
+  const row = db
+    .prepare(
+      "SELECT reason FROM visitor_submissions WHERE idempotency_key=? AND outcome='rejected'",
+    )
+    .get(key);
+  return row ? String(row.reason) : null;
+}
+export function recordSubmission(
+  input: { idempotencyKey: string; aspiration: string; theme: string },
+  outcome: "approved" | "rejected",
+  leafId?: string,
+  reason = "",
+) {
+  db.prepare(
+    "INSERT OR IGNORE INTO visitor_submissions(id,idempotency_key,leaf_id,private_message,selected_theme,outcome,reason,created_at) VALUES(?,?,?,?,?,?,?,?)",
+  ).run(
+    randomUUID(),
+    input.idempotencyKey,
+    leafId || null,
+    encryptMessage(input.aspiration),
+    input.theme,
+    outcome,
+    reason,
+    new Date().toISOString(),
+  );
+}
+export type PrivateSubmission = {
+  id: string;
+  leaf_id: string | null;
+  message: string;
+  selected_theme: Theme;
+  outcome: "approved" | "rejected";
+  reason: string;
+  created_at: string;
+  leaf_message: string | null;
+  leaf_status: string | null;
+};
+export function listSubmissions({
+  page = 1,
+  query = "",
+  outcome = "all",
+}: { page?: number; query?: string; outcome?: string } = {}) {
+  const rows = db
+    .prepare(
+      `SELECT s.id,s.leaf_id,s.private_message,s.selected_theme,s.outcome,s.reason,s.created_at,l.leaf_message,l.status AS leaf_status FROM visitor_submissions s LEFT JOIN approved_leaves l ON l.id=s.leaf_id ORDER BY s.created_at DESC,s.id DESC`,
+    )
+    .all();
+  const all = rows
+    .map(
+      (row) =>
+        ({
+          ...row,
+          message: decryptMessage(String(row.private_message)),
+        }) as Record<string, unknown> & { message: string },
+    )
+    .filter((row) => {
+      const outcomeMatches = outcome === "all" || row.outcome === outcome;
+      const searchable =
+        `${row.message} ${row.leaf_message || ""} ${row.selected_theme}`.toLowerCase();
+      return outcomeMatches && searchable.includes(query.toLowerCase());
+    })
+    .map((row) => {
+      const { private_message: _, ...safe } = row;
+      return safe as PrivateSubmission;
+    });
+  return {
+    submissions: all.slice((page - 1) * 25, page * 25),
+    total: all.length,
+    page,
+    pages: Math.max(1, Math.ceil(all.length / 25)),
+  };
+}
+export function deleteSubmission(id: string) {
+  return transaction(() => {
+    const row = db
+      .prepare("SELECT leaf_id FROM visitor_submissions WHERE id=?")
+      .get(id);
+    if (!row) return false;
+    // Keep the idempotency tombstone so a retry cannot republish removed content.
+    if (row.leaf_id)
+      db.prepare("UPDATE approved_leaves SET status='hidden' WHERE id=?").run(
+        row.leaf_id,
+      );
+    db.prepare("DELETE FROM visitor_submissions WHERE id=?").run(id);
+    changed();
+    db.prepare(
+      "INSERT INTO audit_events(action,leaf_id,created_at) VALUES('delete_private_message',?,?)",
+    ).run(row.leaf_id || null, new Date().toISOString());
+    return true;
+  });
 }
 export function consumeRate(key: string, maximum: number, windowMs: number) {
   const now = Date.now();

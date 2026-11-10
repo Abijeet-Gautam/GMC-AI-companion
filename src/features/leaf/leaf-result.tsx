@@ -91,7 +91,7 @@ export function LeafResult({
         <p className="mt-3 text-sm text-foreground/60">
           {keepsake
             ? "A little keepsake from the Living Tree of GMC."
-            : "Look at the big screen. You've helped the tree grow."}
+            : `Look for leaf #${leaf.id.slice(0, 6).toUpperCase()} on the big screen. You've helped the tree grow.`}
         </p>
       </div>
       <section className="keepsake forest grain relative overflow-hidden rounded-t-[100px] rounded-b-2xl px-7 pb-8 pt-9 text-center">

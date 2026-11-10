@@ -8,8 +8,33 @@ export function uuid() {
   ).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+// Avoid AbortSignal.any/timeout: many otherwise capable TV browsers lack them.
+export async function fetchWithTimeout(
+  url: string,
+  init?: RequestInit,
+  timeout = 30000,
+) {
+  const controller = new AbortController(),
+    parent = init?.signal;
+  const abort = () => controller.abort(parent?.reason);
+  if (parent?.aborted) abort();
+  else parent?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(
+    () =>
+      controller.abort(
+        new DOMException("The request timed out.", "TimeoutError"),
+      ),
+    timeout,
+  );
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+    parent?.removeEventListener("abort", abort);
+  }
+}
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });

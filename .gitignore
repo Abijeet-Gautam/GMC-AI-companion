@@ -10,3 +10,4 @@ data/*.sqlite*
 playwright-report/
 test-results/
 data/tests/
+.reference-tree/

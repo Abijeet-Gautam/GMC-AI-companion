@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { TreeSnapshot } from "@/lib/catalog";
+import { fetchWithTimeout } from "@/lib/client";
 export function useTree({ cache = false }: { cache?: boolean } = {}) {
   const [tree, setTree] = useState<TreeSnapshot | null>(null),
     [connection, setConnection] = useState<
@@ -44,13 +45,14 @@ export function useTree({ cache = false }: { cache?: boolean } = {}) {
       if (busy) return;
       busy = true;
       try {
-        const response = await fetch("/api/leaves", {
-          cache: "no-store",
-          signal: AbortSignal.any([
-            controller.signal,
-            AbortSignal.timeout(10000),
-          ]),
-        });
+        const response = await fetchWithTimeout(
+          "/api/leaves",
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
+          10000,
+        );
         if (!response.ok) throw new Error();
         accept(await response.json());
       } catch {
@@ -59,26 +61,30 @@ export function useTree({ cache = false }: { cache?: boolean } = {}) {
         busy = false;
       }
     }
-    const stream = new EventSource("/api/tree/stream");
-    stream.addEventListener("tree", (event) => {
+    const stream =
+      typeof window.EventSource === "function"
+        ? new EventSource("/api/tree/stream")
+        : null;
+    stream?.addEventListener("tree", (event) => {
       try {
         accept(JSON.parse((event as MessageEvent).data));
       } catch {
         void reconcile();
       }
     });
-    stream.onerror = () => {
-      if (alive) setConnection("reconnecting");
-    };
+    if (stream)
+      stream.onerror = () => {
+        if (alive) setConnection("reconnecting");
+      };
     void reconcile();
-    const interval = setInterval(reconcile, 15000);
+    const interval = setInterval(reconcile, stream ? 15000 : 2000);
     window.addEventListener("online", reconcile);
     const offline = () => setConnection("reconnecting");
     window.addEventListener("offline", offline);
     return () => {
       alive = false;
       controller.abort();
-      stream.close();
+      stream?.close();
       clearInterval(interval);
       window.removeEventListener("online", reconcile);
       window.removeEventListener("offline", offline);

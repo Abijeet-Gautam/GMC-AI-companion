@@ -1,6 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import { contributionSchema, type ContributionInput } from "@/lib/schemas";
-import { getByKey, insertLeaf, consumeRate, recordMetric } from "@/server/db";
+import {
+  getByKey,
+  insertLeaf,
+  consumeRate,
+  recordMetric,
+  getTreeSettings,
+  recordSubmission,
+  rejectedSubmission,
+} from "@/server/db";
 import { createLeaf, refreshReflection } from "@/server/services/ai";
 import { visitor } from "@/server/auth";
 import {
@@ -19,17 +27,23 @@ const globalFlights = globalThis as unknown as {
 const flights = (globalFlights.gmcFlights ??= new Map());
 async function processLeaf(input: ContributionInput, hash: string) {
   const generated = await createLeaf(input.aspiration, input.theme);
-  const record = insertLeaf(input.idempotencyKey, hash, {
-    id: randomUUID(),
-    ...generated,
-    created_at: new Date().toISOString(),
-    is_demo: false,
-  });
+  const record = insertLeaf(
+    input.idempotencyKey,
+    hash,
+    {
+      id: randomUUID(),
+      ...generated,
+      created_at: new Date().toISOString(),
+      is_demo: false,
+    },
+    input,
+  );
   if (record.status !== "approved")
     throw new AppError("This leaf has been removed from the public tree.", 410);
   return record.leaf;
 }
 export async function POST(request: Request) {
+  let historyInput: ContributionInput | undefined;
   const session = visitor(request);
   const respond = (
     body: unknown,
@@ -84,6 +98,19 @@ export async function POST(request: Request) {
       const leaf = await inflight.promise;
       return respond({ leaf, mode: leaf.mode });
     }
+    const rejected = rejectedSubmission(input.idempotencyKey);
+    if (rejected)
+      throw new AppError(
+        "This hope needs a revision. Edit your message before submitting again.",
+        422,
+        "MODERATION_REJECTED",
+      );
+    if (!getTreeSettings().acceptingContributions)
+      throw new AppError(
+        "The tree is taking a short rest. Your hope is kept on this phone; please try again shortly.",
+        503,
+        "TREE_PAUSED",
+      );
     const globalRate = consumeRate(
       "submissions:global",
       Number(process.env.GLOBAL_RATE_LIMIT) || 60,
@@ -109,6 +136,7 @@ export async function POST(request: Request) {
         { "Retry-After": String(retryAfter) },
       );
     }
+    historyInput = input;
     const promise = processLeaf(input, hash);
     flights.set(input.idempotencyKey, { hash, promise });
     try {
@@ -121,8 +149,11 @@ export async function POST(request: Request) {
       flights.delete(input.idempotencyKey);
     }
   } catch (error) {
-    if (error instanceof AppError && error.code === "MODERATION_REJECTED")
+    if (error instanceof AppError && error.code === "MODERATION_REJECTED") {
       recordMetric("rejected");
+      if (historyInput)
+        recordSubmission(historyInput, "rejected", undefined, error.message);
+    }
     const response = errorResponse(error);
     if (session.cookie) response.headers.set("Set-Cookie", session.cookie);
     return response;

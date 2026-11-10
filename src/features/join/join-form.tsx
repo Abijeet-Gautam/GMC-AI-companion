@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,7 +15,13 @@ import { Button } from "@/components/ui/button";
 import { ThemeIcon } from "@/components/theme-icon";
 import { LeafResult } from "@/features/leaf/leaf-result";
 import { uuid, api } from "@/lib/client";
+import { themeSchema } from "@/lib/schemas";
 export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
+  const section = useRef<HTMLElement>(null);
+  const [hydrated, setHydrated] = useState(false),
+    [online, setOnline] = useState(true),
+    [paused, setPaused] = useState(false),
+    [recovered, setRecovered] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme || "nature"),
     [step, setStep] = useState(0),
     [aspiration, setAspiration] = useState("");
@@ -25,6 +31,78 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     [leaf, setLeaf] = useState<Leaf | null>(null);
   const key = useRef<string | null>(null),
     lock = useRef(false);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(
+        sessionStorage.getItem("gmc-hope-draft") || "null",
+      );
+      if (
+        saved &&
+        typeof saved.aspiration === "string" &&
+        saved.aspiration.length <= 200 &&
+        themeSchema.safeParse(saved.theme).success
+      ) {
+        setAspiration(saved.aspiration);
+        setTheme(initialTheme || saved.theme);
+        setStep(saved.aspiration ? 1 : 0);
+        setRecovered(Boolean(saved.aspiration));
+        // Never re-use the previous key when a theme shortcut changes intent.
+        if (!initialTheme || initialTheme === saved.theme)
+          key.current = typeof saved.key === "string" ? saved.key : null;
+      }
+      const receipt = sessionStorage.getItem("gmc-hope-receipt");
+      if (receipt && !saved?.aspiration)
+        void api<{ leaf: Leaf }>(`/api/leaves/${encodeURIComponent(receipt)}`, {
+          cache: "no-store",
+        })
+          .then((data) => {
+            setLeaf(data.leaf);
+            setStep(2);
+          })
+          .catch(() => {
+            sessionStorage.removeItem("gmc-hope-receipt");
+          });
+    } catch {
+      /* Storage is optional on private browsers. */
+    }
+    setHydrated(true);
+    const changed = () => setOnline(navigator.onLine);
+    changed();
+    window.addEventListener("online", changed);
+    window.addEventListener("offline", changed);
+    const checkSettings = () => {
+      api<{ settings: { acceptingContributions: boolean } }>(
+        "/api/tree/settings",
+        { cache: "no-store" },
+      )
+        .then((data) => setPaused(!data.settings.acceptingContributions))
+        .catch(() => {});
+    };
+    checkSettings();
+    const timer = setInterval(checkSettings, 15000);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("online", changed);
+      window.removeEventListener("offline", changed);
+    };
+  }, [initialTheme]);
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      if (leaf) sessionStorage.removeItem("gmc-hope-draft");
+      else
+        sessionStorage.setItem(
+          "gmc-hope-draft",
+          JSON.stringify({ theme, aspiration, key: key.current }),
+        );
+    } catch {
+      /* Optional draft recovery. */
+    }
+  }, [theme, aspiration, leaf, hydrated]);
+  useEffect(() => {
+    if (hydrated && step === 1)
+      section.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [step, hydrated]);
   function edit(text: string) {
     setAspiration(text);
     setError("");
@@ -38,6 +116,14 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     setError("");
     key.current ??= uuid();
     try {
+      sessionStorage.setItem(
+        "gmc-hope-draft",
+        JSON.stringify({ theme, aspiration, key: key.current }),
+      );
+    } catch {
+      /* Optional recovery. */
+    }
+    try {
       const data = await api<{ leaf: Leaf }>("/api/contributions", {
         method: "POST",
         body: JSON.stringify({
@@ -46,18 +132,24 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           consent,
           idempotencyKey: key.current,
         }),
-        signal: AbortSignal.timeout(30000),
       });
       setLeaf(data.leaf);
+      try {
+        sessionStorage.setItem("gmc-hope-receipt", data.leaf.id);
+      } catch {
+        /* Optional receipt recovery. */
+      }
       setAspiration("");
       setStep(2);
     } catch (err) {
       setError(
         err instanceof Error && err.name === "TimeoutError"
           ? "This is taking longer than expected. Retry to recover your leaf safely."
-          : err instanceof Error
-            ? err.message
-            : "Please try again.",
+          : err instanceof TypeError
+            ? "We couldn't reach the tree. Your hope is still here. Check your Wi-Fi and try again."
+            : err instanceof Error
+              ? err.message
+              : "Please try again.",
       );
     } finally {
       setBusy(false);
@@ -72,6 +164,11 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           className="mt-6 w-full"
           variant="outline"
           onClick={() => {
+            try {
+              sessionStorage.removeItem("gmc-hope-receipt");
+            } catch {
+              /* Optional storage. */
+            }
             key.current = null;
             setLeaf(null);
             setConsent(false);
@@ -83,25 +180,25 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
       </div>
     );
   return (
-    <div className="grid gap-12 md:grid-cols-[.8fr_1.2fr] md:gap-20">
+    <div className="grid gap-7 md:grid-cols-[.8fr_1.2fr] md:gap-20">
       <aside>
         <Link
           href="/"
-          className="mb-10 inline-flex min-h-11 items-center gap-2 text-xs text-foreground/55"
+          className="mb-5 inline-flex min-h-11 items-center gap-2 text-xs text-foreground/55 md:mb-10"
         >
           <ArrowLeft size={14} />
           Back to the tree
         </Link>
         <p className="eyebrow mb-5 text-[#8b7749]">Your voice belongs here</p>
-        <h1 className="text-5xl leading-[1.1] tracking-[-.04em] md:text-6xl">
+        <h1 className="text-3xl leading-[1.1] tracking-[-.04em] md:text-6xl">
           A little hope.
           <br />A living <em>future.</em>
         </h1>
-        <p className="mt-6 max-w-xs text-sm leading-relaxed text-foreground/60">
+        <p className="mt-4 max-w-sm text-sm leading-relaxed text-foreground/60 md:mt-6">
           Take a moment to imagine the city you want to see. We'll help your
           hope find its branch.
         </p>
-        <div className="mt-10 flex items-center gap-3 border-t border-border pt-6 text-xs text-foreground/55">
+        <div className="mt-10 hidden items-center gap-3 border-t border-border pt-6 text-xs text-foreground/55 md:flex">
           <ShieldCheck size={18} strokeWidth={1.4} />
           <span>
             Anonymous by design.
@@ -110,7 +207,31 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           </span>
         </div>
       </aside>
-      <section className="min-w-0">
+      <section ref={section} className="min-w-0 scroll-mt-5">
+        {!online && (
+          <p
+            role="status"
+            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+          >
+            Your phone is offline. Your draft is kept in this tab. Reconnect to
+            grow your leaf.
+          </p>
+        )}
+        {paused && (
+          <p
+            role="status"
+            className="mb-4 rounded-lg border border-border bg-muted p-3 text-xs"
+          >
+            The tree is resting for a moment. Keep your hope here and try again
+            shortly.
+          </p>
+        )}
+        {recovered && aspiration && (
+          <p className="mb-4 text-xs text-foreground/60">
+            Your unfinished hope is back. Review it, then share when you're
+            ready.
+          </p>
+        )}
         <ol aria-label="Your progress" className="mb-9 flex gap-2">
           {["Choose a theme", "Share your hope", "Watch it grow"].map(
             (label, index) => (
@@ -241,7 +362,9 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               />
               <span>
                 I agree that my approved, anonymous leaf can appear on the
-                shared tree, a public keepsake and collective reflections.{" "}
+                shared tree, a public keepsake and collective reflections. My
+                original words may be kept privately for reception staff to
+                review, with contact details redacted.{" "}
                 <Link href="/privacy" className="underline underline-offset-2">
                   How it works
                 </Link>
@@ -250,8 +373,8 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             <p className="text-[10px] leading-relaxed text-foreground/50">
               When AI is enabled, your words are sent to OpenAI for
               interpretation and safety checks. If unavailable, a curated leaf
-              is chosen using your theme and keywords. Your original words are
-              not stored.
+              is chosen using your theme and keywords. Only your approved leaf
+              is public.
             </p>
             {error && (
               <p
@@ -263,7 +386,13 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             )}
             <Button
               type="submit"
-              disabled={busy || !consent || aspiration.trim().length < 3}
+              disabled={
+                busy ||
+                !consent ||
+                aspiration.trim().length < 3 ||
+                !online ||
+                paused
+              }
               className="w-full"
               size="lg"
             >

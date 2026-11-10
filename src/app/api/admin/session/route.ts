@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { consumeRate } from "@/server/db";
+import { consumeRate, db } from "@/server/db";
 import {
   isAdmin,
   verifyPassword,
@@ -32,17 +32,36 @@ export async function POST(request: Request) {
         "Run npm run setup and restart the server to enable staff sign-in.",
         503,
       );
-    const rate = consumeRate("admin:login", 10, 600000);
-    if (!rate.allowed)
+    const failed = db
+      .prepare("SELECT count,expires FROM rate_limits WHERE key='admin:login'")
+      .get();
+    if (
+      failed &&
+      Number(failed.expires) > Date.now() &&
+      Number(failed.count) >= 10
+    )
       return Response.json(
         { error: "Too many sign-in attempts. Please wait a few minutes." },
-        { status: 429, headers: { "Retry-After": String(rate.retryAfter) } },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(
+              Math.max(
+                1,
+                Math.ceil((Number(failed.expires) - Date.now()) / 1000),
+              ),
+            ),
+          },
+        },
       );
     const data = z
       .object({ password: z.string().min(1).max(256) })
       .safeParse(await readJson(request));
-    if (!data.success || !verifyPassword(data.data.password))
+    if (!data.success || !verifyPassword(data.data.password)) {
+      consumeRate("admin:login", 10, 600000);
       throw new AppError("That password did not match.", 401);
+    }
+    db.prepare("DELETE FROM rate_limits WHERE key='admin:login'").run();
     return Response.json(
       { authenticated: true },
       { headers: { ...noStore, "Set-Cookie": createAdminCookie(request) } },

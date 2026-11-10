@@ -27,5 +27,11 @@
 - **Duplicates?** Unique UUID per submission, fingerprint checks and database enforcement.
 - **Internet failure?** Curated offline messages remain available over local Wi-Fi. Display-host disconnection keeps cached approved data until reconnecting.
 - **AI role?** OpenAI moderates, classifies and rewrites aspirations with validated output, and reflects on theme counts. Offline output is explicitly labelled.
-- **Public information?** Approved leaf, theme, timestamp, chamber and keepsake. Original aspiration is not stored.
+- **Public information?** Approved leaf, theme, timestamp, chamber and keepsake. Original words are private, redacted and encrypted for authenticated staff review after form consent.
 - **Official plans?** These are visitors' hopes. Chamber pathways are project interpretations.
+
+## Demonstrate the new tree
+
+In the staff console open **Tree & display**, choose a species/palette and inspect the preview. Save to update the reception screen. Rotate between portrait and landscape; the camera reframes and the QR stays clear. Choose low quality or illustration for an older browser.
+
+Open **Visitor messages** to compare a hope with its public interpretation and moderation outcome. Search for a message, hide its leaf, and demonstrate deleting private words with the confirmation control. Refresh a phone mid-draft and after success to show recovery.

@@ -39,6 +39,8 @@ Success: 201 for a new leaf, 200 for replay. Mismatched content with an old key 
 
 Default: `{leaves,total,stats,reflection,revision,serverTime}`. Up to 120 approved leaves ordered by `(created_at DESC,id DESC)`.
 
+Snapshots also include `settings`, the current public tree appearance and submission availability. Private messages never appear in snapshots or streams.
+
 Historical pagination: `?limit=60&cursor=...` returns `{leaves,nextCursor}`. Limit: 1–120. Cursor is the opaque token from the prior response. Hidden records are excluded.
 
 ## GET /api/leaves/:id
@@ -94,3 +96,20 @@ SSE event `tree` contains the default leaves snapshot. Event ID is the database 
 ```
 
 Success: `{ok:true}`. Seed preserves an existing demo set. Clear deletes only demo records. Unauthenticated requests return 401. There is no unauthenticated reset endpoint.
+
+## Tree settings
+
+- `GET /api/tree/settings`: public `{settings}` for visitor availability and display rendering.
+- `GET /api/admin/tree`: authenticated settings read.
+- `PUT /api/admin/tree`: authenticated full `TreeSettings` object, validated in `src/lib/tree-settings.ts`. Returns `{settings}` and increments the public revision so SSE displays update. Invalid settings return 400.
+
+Settings cover species, palette, seed, maturity, density, wind, rotation, quality, renderer, headline and `acceptingContributions`. Pausing returns 503 / `TREE_PAUSED` for new contributions; accepted-key replays can recover existing receipts.
+
+## Private visitor history
+
+Consent now covers private staff review of original words. Successes and moderation rejections are recorded once by idempotency key. Contact-like emails, numbers and links are redacted before AES-256-GCM encryption. Public leaves contain no originals.
+
+- `GET /api/admin/submissions?page=1&query=&outcome=all`: authenticated, 25 rows per page; returns `{submissions,total,page,pages}`. Outcome: all/approved/rejected. Server-side search includes original words, leaf text and selected theme.
+- `DELETE /api/admin/submissions` with `{id}`: deletes that private record, hides the linked leaf, and audits the action. Accepted-leaf idempotency records remain so retries cannot republish removed content.
+
+History includes message, selected theme, outcome, moderation reason, timestamp and linked leaf/status. Older starter leaves have no original words to recover. Demo leaves do not invent visitor messages.

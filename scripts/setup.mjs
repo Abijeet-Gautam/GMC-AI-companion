@@ -10,6 +10,12 @@ if (!/^ADMIN_PASSWORD=.+$/m.test(content)) {
     ? content.replace(/^ADMIN_PASSWORD=.*$/m, setting)
     : content + "\n" + setting + "\n";
 }
+if (!/^MESSAGE_ENCRYPTION_KEY=.+$/m.test(content)) {
+  const setting = `MESSAGE_ENCRYPTION_KEY=${randomBytes(32).toString("base64url")}`;
+  content = /^MESSAGE_ENCRYPTION_KEY=.*$/m.test(content)
+    ? content.replace(/^MESSAGE_ENCRYPTION_KEY=.*$/m, setting)
+    : content + "\n" + setting + "\n";
+}
 writeFileSync(path, content);
 console.log(
   "Local configuration ready. Find your staff password under ADMIN_PASSWORD in .env.local.",

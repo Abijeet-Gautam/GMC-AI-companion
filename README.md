@@ -2,7 +2,7 @@
 
 A local hackathon app for the GMC Experience Centre: scan one QR, share an anonymous aspiration, watch a leaf join the reception tree, and discover a related chamber.
 
-**Next.js 16, React 19, TypeScript, Tailwind 4, shadcn-style components with Radix, local SQLite, OpenAI Responses and Moderation APIs.** One Node server serves phones, display, staff console and API.
+**Next.js 16, React 19, TypeScript, Tailwind 4, shadcn-style components with Radix, Three.js, local SQLite, OpenAI Responses and Moderation APIs.** One Node server serves phones, display, staff console and API.
 
 ## Start
 
@@ -25,6 +25,14 @@ Open http://localhost:3000. Setup creates `.env.local` with a random staff passw
 | `/chambers`  | Four-chamber guide and suggested thematic pathways               |
 | `/privacy`   | Participation, external processing, cookies and retention        |
 | `/admin`     | Staff sign-in, hide/restore, demo data, counts and reflection    |
+
+## Procedural tree and TV display
+
+The tree reuses the procedural branch/species/age algorithms from [Mike Fernandez's just-a-simple-tree](https://github.com/MikeFernandez-Pro/just-a-simple-tree). Adapted MIT-licensed modules and the retained licence are in `src/vendor/just-a-simple-tree/`. The source revision and changes are documented in [UPSTREAM.md](src/vendor/just-a-simple-tree/UPSTREAM.md).
+
+Our renderer adds GMC palettes, wind, foliage, deterministic visitor markers, queued arrivals, accessible leaf selection and an adaptive camera. The full-viewport layout keeps the tree, QR and message panel visible in either orientation. Tested viewport sizes include 1080×1920, 2160×3840, 1920×1080, 3840×2160, 1280×720 and phones. The physical TV and browser still need an on-site check.
+
+3D uses WebGL2; WebGPU is not required. If WebGL is unavailable or the context is lost, the interactive illustrated tree takes over. Staff can choose illustration explicitly. Automatic quality caps pixel density and foliage work; reduced-motion mode renders only when the view changes. Tree visuals are generated locally without external image, font or music downloads.
 
 ## Enable OpenAI
 
@@ -65,6 +73,10 @@ Sign into `/admin` using `ADMIN_PASSWORD` from `.env.local`. Signed HttpOnly Sam
 - Hide/restore a leaf; hidden leaves return 404 publicly and disappear from connected displays.
 - Remove demo leaves while keeping visitor contributions.
 - Search/filter recent leaves, view theme and AI/fallback counts, and refresh reflection.
+- **Tree & display:** preview oak, pine, willow or cypress; choose spring, blossom, autumn or night colours; set seed, maturity, density, angle, breeze, quality and headline. Save to update connected displays. Pause new submissions while keeping the existing tree visible.
+- **Visitor messages:** search and paginate original words, public interpretations and moderation outcomes. Hide/restore a linked leaf, or delete private words and hide it. Contact details are redacted and private messages encrypted before storage. Older leaves have no recoverable original words.
+
+Setup also generates a server-only `MESSAGE_ENCRYPTION_KEY`. Keep it stable and back it up alongside the database; changing or losing it can make private history unreadable. Setup preserves existing keys, passwords and provider configuration. Staff authentication protects private history; public leaf fields are unchanged.
 
 Staff operations are audited locally. The console shows up to 500 recent records. The public tree renders up to 120 leaves; older approved leaves remain in SQLite and can be retrieved with cursor pagination or keepsake URLs.
 
@@ -74,7 +86,8 @@ Staff operations are audited locally. The console shows up to 500 recent records
 - SSE sends database snapshots when the revision changes, with 15-second reconciliation. The display queues arrivals and reconciles removals.
 - Display caching stores approved public data for up to a day. Connection loss keeps the tree visible. A disconnected screen learns about removals after reconnecting.
 - Default rate limits: five attempts per signed browser cookie per ten minutes, plus 60 global attempts per minute. Cookies can be cleared, so this is hackathon abuse control rather than bot-proof identity.
-- Application code stores no raw aspirations or visitor IP addresses. SQLite holds approved leaves, anonymous request fingerprints, counters and staff actions. See `/privacy` for provider processing and retention details.
+- After form consent, redacted original words and moderation outcomes are encrypted and stored privately for staff review. Public reads contain only approved leaf fields. Application code stores no visitor IP addresses. See `/privacy` for processing and retention details.
+- Phone drafts and retry keys survive refresh in tab-local session storage. Successful receipts recover after refresh. Short leaf codes connect a phone result to the public display.
 - WAL, transactions, constraints and server timestamps protect persistence. Day counts use Asia/Thimphu.
 - Reflections describe participating visitors' themes, not a representative survey. Demo leaves are flagged throughout.
 - Chamber names follow the report. Descriptions and thematic pathways are project interpretations awaiting GMC review; the official chamber page could not be retrieved.
@@ -85,7 +98,7 @@ Staff operations are audited locally. The console shows up to 500 recent records
 src/app/                 Pages and API routes
 src/features/home/       Introduction and live preview
 src/features/join/       Guided mobile submission
-src/features/display/    SVG tree, animation queue, QR and kiosk
+src/features/display/    Procedural 3D, illustration fallback, queue and kiosk
 src/features/leaf/       Result, share and SVG download
 src/features/admin/      Staff console
 src/components/ui/       Local shadcn-style components
@@ -95,6 +108,7 @@ src/server/db/           SQLite migration, queries and transactions
 src/server/services/     OpenAI, moderation, fallback and reflection
 src/server/auth.ts       Signed sessions and authorization
 src/server/http.ts       Bounded body parsing and origin checks
+src/vendor/just-a-simple-tree/  Adapted geometry and retained MIT licence
 scripts/                 Setup, smoke test and isolated test servers
 tests/                   Browser, API and mocked OpenAI tests
 data/                    Ignored SQLite files

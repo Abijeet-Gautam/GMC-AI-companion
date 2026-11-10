@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#b2b988"/><stop offset="1" stop-color="#536f59"/></linearGradient></defs>
+<path fill="url(#sky)" d="M0 0h1000v700H0z"/><circle cx="755" cy="159" r="82" fill="#ecdfab" opacity=".7"/>
+<path fill="#889976" d="m0 310 173-165 83 51 129-114 96 104 101 61 125-78 98 86 195-169v614H0z"/>
+<path fill="#617c62" d="m0 394 157-168 72 35 114-76 124 91 92 68 138-105 124 80 179-58v439H0z"/>
+<path fill="#41634e" d="m0 468 121-94 121-47 94 50 121-12 97 55 126-70 129 47 191-63v366H0z"/>
+<path fill="#2d5141" d="m0 500 218-66 156 71 117-39 150 53 144-55 215 6v230H0z"/>
+<path fill="#b6be93" opacity=".67" d="M742 475c-93 54-264 58-224 101 23 26 136 34 215 66l110 58h157l-149-78c-112-50-244-29-248-65-4-24 79-28 139-82Z"/>
+<path fill="none" stroke="#b0c095" stroke-opacity=".31" stroke-width="2" d="M616 339q169 78 384-12M647 355q147 69 353-4M692 378q131 57 308-3M650 468q150 31 350-43M679 483q123 20 321-36M705 498q133 4 295-27M732 511q116-2 268-16"/>
+</svg>

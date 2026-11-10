@@ -105,6 +105,10 @@ Success: `{ok:true}`. Seed preserves an existing demo set. Clear deletes only de
 
 Settings cover species, palette, seed, maturity, density, wind, rotation, quality, renderer, headline and `acceptingContributions`. Pausing returns 503 / `TREE_PAUSED` for new contributions; accepted-key replays can recover existing receipts.
 
+Extended appearance fields have schema defaults so saved settings from earlier versions remain readable. Species now include oak, pine, cypress, willow, bush and spooky; palettes include blossom, spring, autumn, frost and night. See `treeSettingsSchema` for the full branch, leaf, colour and lighting controls.
+
+`growthMode` defaults to `contributions`; `leavesForMaturity` defaults to 48 (range 8–500). Approved totals determine the live tree's physical growth and leaf count. `manual` mode uses `age` and `season` for authoring a full canopy. Studio preview counts are browser-only state, excluded from settings and API writes. No reset/delete operation is performed when switching growth modes.
+
 ## Private visitor history
 
 Consent now covers private staff review of original words. Successes and moderation rejections are recorded once by idempotency key. Contact-like emails, numbers and links are redacted before AES-256-GCM encryption. Public leaves contain no originals.

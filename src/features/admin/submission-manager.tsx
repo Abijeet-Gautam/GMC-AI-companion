@@ -111,7 +111,7 @@ export function SubmissionManager() {
         </p>
       </div>
       <div className="mb-6 flex flex-wrap gap-3">
-        <label className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-border bg-white/50 px-4">
+        <label className="flex min-w-0 flex-1 items-center gap-3 rounded-lg bg-card px-4">
           <Search size={16} />
           <input
             aria-label="Search visitor messages"
@@ -145,14 +145,11 @@ export function SubmissionManager() {
       )}
       <div className="space-y-4">
         {history?.submissions.map((item) => (
-          <article
-            key={item.id}
-            className="rounded-xl border border-border bg-white/45 p-5"
-          >
+          <article key={item.id} className="rounded-xl bg-card p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[10px]">
                 <span
-                  className={`rounded-full px-2 py-1 ${item.outcome === "rejected" ? "bg-amber-100 text-amber-900" : "bg-[#e4ebdc]"}`}
+                  className={`rounded-full px-2 py-1 ${item.outcome === "rejected" ? "bg-amber-100 text-amber-900" : "bg-accent/50"}`}
                 >
                   {item.outcome === "rejected"
                     ? "Not published"
@@ -181,7 +178,7 @@ export function SubmissionManager() {
                   {item.message}
                 </p>
               </div>
-              <div className="border-l border-border pl-5">
+              <div className="rounded-2xl bg-muted p-4">
                 <p className="eyebrow mb-2 text-[8px] text-foreground/45">
                   {item.outcome === "approved"
                     ? "Approved leaf"
@@ -195,7 +192,7 @@ export function SubmissionManager() {
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               {item.leaf_id && (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   disabled={Boolean(busy)}
                   onClick={() => update(item)}
@@ -213,7 +210,7 @@ export function SubmissionManager() {
                 </Button>
               )}
               {deleting === item.id ? (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 p-2">
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-red-50 p-2">
                   <span className="text-xs">
                     Delete private words and hide its leaf?
                   </span>
@@ -248,7 +245,7 @@ export function SubmissionManager() {
           </article>
         ))}
         {history && !history.submissions.length && (
-          <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-foreground/60">
+          <div className="rounded-xl bg-card p-10 text-center text-sm text-foreground/60">
             No visitor messages match. New messages appear here after
             submission.
           </div>
@@ -261,7 +258,7 @@ export function SubmissionManager() {
         <div className="flex gap-2">
           <Button
             size="icon"
-            variant="outline"
+            variant="secondary"
             disabled={page <= 1}
             onClick={() => setPage((value) => value - 1)}
             aria-label="Previous messages"
@@ -270,7 +267,7 @@ export function SubmissionManager() {
           </Button>
           <Button
             size="icon"
-            variant="outline"
+            variant="secondary"
             disabled={page >= (history?.pages ?? 1)}
             onClick={() => setPage((value) => value + 1)}
             aria-label="Next messages"

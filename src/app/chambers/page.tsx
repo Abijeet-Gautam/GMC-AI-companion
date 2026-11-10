@@ -8,7 +8,7 @@ export default function ChambersPage() {
     <>
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-6 py-16 md:px-10">
-        <p className="eyebrow mb-5 text-[#8b7749]">GMC Experience Centre</p>
+        <p className="eyebrow mb-5 text-foreground/45">Gelephu experience centre</p>
         <h1 className="max-w-2xl text-5xl leading-tight tracking-tight md:text-6xl">
           Let your hope lead
           <br />
@@ -26,7 +26,7 @@ export default function ChambersPage() {
               <section
                 id={`chamber-${id}`}
                 key={id}
-                className="scroll-mt-6 rounded-2xl border border-border bg-white/30 p-7 md:p-9"
+                className="scroll-mt-6 rounded-2xl bg-card p-7 md:p-9"
               >
                 <div className="mb-10 flex items-center justify-between">
                   <span className="serif text-5xl text-foreground/20">
@@ -35,10 +35,10 @@ export default function ChambersPage() {
                   <Compass
                     size={25}
                     strokeWidth={1}
-                    className="text-[#9c8657]"
+                    className="text-foreground/50"
                   />
                 </div>
-                <p className="eyebrow mb-3 text-[9px] text-[#8b7749]">
+                <p className="eyebrow mb-3 text-[9px] text-foreground/45">
                   {detail.eyebrow}
                 </p>
                 <h2 className="mb-4 text-3xl">{name}</h2>
@@ -52,7 +52,7 @@ export default function ChambersPage() {
                       <Link
                         key={theme.id}
                         href={`/join?theme=${theme.id}`}
-                        className="rounded-full border border-border px-3 py-2 text-[10px]"
+                        className="rounded-full bg-muted px-3 py-2 text-[10px]"
                       >
                         {theme.short} <span aria-hidden="true">&#8599;</span>
                       </Link>

@@ -70,7 +70,7 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
   return (
     <section
       aria-labelledby="tree-settings-title"
-      className="grid gap-6 lg:grid-cols-[1fr_400px]"
+      className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]"
     >
       <Card>
         <h2 id="tree-settings-title" className="mb-2 text-3xl">
@@ -79,6 +79,11 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
         <p className="mb-7 text-sm text-foreground/60">
           Preview a new appearance, then save to update the reception display.
         </p>
+        <Button asChild variant="secondary" className="mb-6 w-full">
+          <Link href="/tree">
+            Open full-screen Tree Studio <ExternalLink size={15} />
+          </Link>
+        </Button>
         <fieldset disabled={!loaded || busy} className="space-y-6">
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="space-y-2 text-xs">
@@ -94,11 +99,13 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
                   )
                 }
               >
-                {["oak", "pine", "willow", "cypress"].map((name) => (
-                  <option key={name} value={name}>
-                    {name[0].toUpperCase() + name.slice(1)}
-                  </option>
-                ))}
+                {["oak", "pine", "willow", "cypress", "bush", "spooky"].map(
+                  (name) => (
+                    <option key={name} value={name}>
+                      {name[0].toUpperCase() + name.slice(1)}
+                    </option>
+                  ),
+                )}
               </select>
             </label>
             <label className="space-y-2 text-xs">
@@ -114,11 +121,13 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
                   )
                 }
               >
-                {["spring", "blossom", "autumn", "night"].map((name) => (
-                  <option key={name} value={name}>
-                    {name[0].toUpperCase() + name.slice(1)}
-                  </option>
-                ))}
+                {["spring", "blossom", "autumn", "night", "frost"].map(
+                  (name) => (
+                    <option key={name} value={name}>
+                      {name[0].toUpperCase() + name.slice(1)}
+                    </option>
+                  ),
+                )}
               </select>
             </label>
           </div>
@@ -132,6 +141,48 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
               onChange={(event) => change("headline", event.target.value)}
             />
           </label>
+          <label className="block space-y-2 text-xs">
+            <span>Growth driver</span>
+            <select
+              aria-label="Growth driver"
+              className="admin-select"
+              value={settings.growthMode}
+              onChange={(event) =>
+                change(
+                  "growthMode",
+                  event.target.value as TreeSettings["growthMode"],
+                )
+              }
+            >
+              <option value="contributions">
+                Grow with approved visitor hopes
+              </option>
+              <option value="manual">Manual age and full-canopy preview</option>
+            </select>
+          </label>
+          {settings.growthMode === "contributions" && (
+            <label className="block space-y-2 text-xs">
+              <span>Leaves to maturity</span>
+              <input
+                aria-label="Leaves to maturity"
+                type="number"
+                min={8}
+                max={500}
+                value={settings.leavesForMaturity}
+                className="admin-select"
+                onChange={(event) =>
+                  change(
+                    "leavesForMaturity",
+                    Math.min(500, Math.max(8, Number(event.target.value) || 8)),
+                  )
+                }
+              />
+              <span className="block text-foreground/55">
+                An empty tree starts as a bare sapling. Each approved hope grows
+                its branches.
+              </span>
+            </label>
+          )}
           {(
             [
               ["age", "Tree maturity", 0.3, 1, 0.01],
@@ -139,28 +190,34 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
               ["wind", "Breeze strength", 0, 1, 0.05],
               ["rotation", "Viewing angle", 0, 360, 5],
             ] as const
-          ).map(([key, label, min, max, step]) => (
-            <label key={key} className="block space-y-3 text-xs">
-              <span className="flex justify-between">
-                <span>{label}</span>
-                <span className="text-foreground/55">
-                  {key === "rotation"
-                    ? `${settings[key]} degrees`
-                    : settings[key].toFixed(2)}
+          )
+            .filter(
+              ([key]) =>
+                settings.growthMode === "manual" ||
+                (key !== "age" && key !== "density"),
+            )
+            .map(([key, label, min, max, step]) => (
+              <label key={key} className="block space-y-3 text-xs">
+                <span className="flex justify-between">
+                  <span>{label}</span>
+                  <span className="text-foreground/55">
+                    {key === "rotation"
+                      ? `${settings[key]} degrees`
+                      : settings[key].toFixed(2)}
+                  </span>
                 </span>
-              </span>
-              <input
-                aria-label={label}
-                type="range"
-                min={min}
-                max={max}
-                step={step}
-                value={settings[key]}
-                onChange={(event) => change(key, Number(event.target.value))}
-                className="w-full accent-[#214e3b]"
-              />
-            </label>
-          ))}
+                <input
+                  aria-label={label}
+                  type="range"
+                  min={min}
+                  max={max}
+                  step={step}
+                  value={settings[key]}
+                  onChange={(event) => change(key, Number(event.target.value))}
+                  className="w-full accent-primary"
+                />
+              </label>
+            ))}
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="space-y-2 text-xs">
               <span className="block">Tree seed</span>
@@ -183,7 +240,7 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
                   className="admin-select min-w-0"
                 />
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="icon"
                   aria-label="Pick a new tree seed"
                   onClick={() =>
@@ -208,7 +265,7 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
                 }
               >
                 <option value="auto">Automatic (recommended)</option>
-                <option value="low">Low · older TVs</option>
+                <option value="low">Low · older displays</option>
                 <option value="high">High</option>
               </select>
             </label>
@@ -234,14 +291,14 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
               </option>
             </select>
           </label>
-          <label className="flex items-start gap-3 rounded-xl border border-border p-4 text-xs leading-relaxed">
+          <label className="flex items-start gap-3 rounded-2xl bg-muted p-4 text-xs leading-relaxed">
             <input
               type="checkbox"
               checked={settings.acceptingContributions}
               onChange={(event) =>
                 change("acceptingContributions", event.target.checked)
               }
-              className="mt-1 h-4 w-4 accent-[#214e3b]"
+              className="mt-1 h-4 w-4 accent-primary"
             />
             <span>
               <strong className="block font-medium">
@@ -261,7 +318,7 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
               Save tree settings
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setSettings(defaultTreeSettings);
                 setNotice("Defaults are previewed. Save to apply them.");
@@ -277,8 +334,8 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
         </p>
       </Card>
       <aside className="space-y-5">
-        <div className="forest overflow-hidden rounded-2xl border border-border p-4">
-          <p className="eyebrow p-3 text-center text-[#d7c086]">
+        <div className="forest overflow-hidden rounded-3xl p-4">
+          <p className="eyebrow p-3 text-center text-accent">
             Appearance preview
           </p>
           <TreeCanvas
@@ -295,13 +352,14 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
           </p>
         </div>
         <Card>
-          <h3 className="mb-3 text-2xl">TV-ready layout</h3>
+          <h3 className="mb-3 text-2xl">Display-ready layout</h3>
           <p className="text-xs leading-relaxed text-foreground/65">
             The display fills the viewport in portrait or landscape, reframes
-            the whole tree, and keeps the QR clear of the canopy. Set the TV to
-            portrait in its display settings and enter browser fullscreen.
+            the whole tree, and keeps the scan code clear of the canopy. Set the
+            screen to portrait in its display settings and enter browser
+            fullscreen.
           </p>
-          <Button asChild variant="outline" className="mt-5 w-full">
+          <Button asChild variant="secondary" className="mt-5 w-full">
             <Link href="/display" target="_blank">
               Open reception display <ExternalLink size={14} />
             </Link>

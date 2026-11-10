@@ -1,139 +1,167 @@
 "use client";
 import Link from "next/link";
-import { ArrowUpRight, ArrowRight, MoveUpRight } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowRight,
+  Sprout,
+  Sparkles,
+  Compass,
+} from "lucide-react";
 import { useTree } from "@/hooks/use-tree";
 import { TreeCanvas } from "@/features/display/tree-canvas";
 import { Button } from "@/components/ui/button";
+import { ThemeIcon } from "@/components/theme-icon";
 import { themes } from "@/lib/catalog";
 export function HomeExperience() {
   const { tree } = useTree();
   return (
     <>
-      <section className="mx-auto grid max-w-7xl items-stretch px-5 pb-8 pt-6 md:grid-cols-[.95fr_1.05fr] md:px-10 md:pt-10">
-        <div className="flex flex-col justify-center pb-12 pt-8 md:py-14 md:pr-12">
-          <p className="eyebrow mb-8 flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#75916d]" />A shared
-            future. One hope at a time.
-          </p>
-          <h1 className="text-[clamp(3.5rem,6vw,6rem)] leading-[1.04] tracking-[-.05em]">
-            A city grows.
-            <br />
-            So do our <em className="text-[#8a743c]">hopes.</em>
-          </h1>
-          <p className="mt-7 max-w-sm text-base leading-relaxed text-foreground/65">
-            What future do you imagine for Gelephu Mindfulness City? Add your
-            voice to a living tree of possibility.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center gap-5">
-            <Button asChild size="lg">
-              <Link href="/join">
-                Grow your leaf <ArrowUpRight size={18} />
-              </Link>
-            </Button>
-            <Link
-              href="/display"
-              className="inline-flex items-center gap-2 text-xs"
-            >
-              Visit the living tree <ArrowRight size={15} />
-            </Link>
-          </div>
-          <div className="mt-12 flex items-center gap-5 border-t border-border pt-6">
-            <span className="serif text-4xl">{tree?.total ?? "—"}</span>
-            <div className="text-xs leading-relaxed text-foreground/60">
-              hopes taking root
+      <section className="home-hero mx-auto max-w-[1440px] px-5 pb-5 pt-2 md:px-10">
+        <div className="home-hero-card grid gap-4 rounded-[32px] bg-card p-3 md:grid-cols-[.95fr_1.05fr] md:p-4 lg:p-6">
+          <div className="hero-copy flex flex-col justify-center px-2 py-4 md:px-6 md:py-7 lg:px-8">
+            <p className="hero-kicker mb-5 flex items-center gap-2 text-[11px] text-foreground/65">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent">
+                <Sprout size={13} />
+              </span>
+              A shared future. One hope at a time.
+            </p>
+            <h1 className="text-[clamp(2.2rem,5vw,5.3rem)] leading-[1.05] tracking-[-.065em]">
+              A city grows.
               <br />
-              {tree?.stats.demo
-                ? `${tree.stats.demo} labelled demo leaves included`
-                : "Every leaf begins with someone like you."}
+              So do our <span className="hero-highlight">hopes.</span>
+            </h1>
+            <p className="hero-description mt-5 max-w-sm text-sm leading-6 text-foreground/60 lg:text-base">
+              What future do you imagine for Gelephu Mindfulness City? Add your
+              voice to a living tree of possibility.
+            </p>
+            <div className="hero-actions mt-6 flex flex-wrap items-center gap-4">
+              <Button asChild>
+                <Link href="/join">
+                  Grow your leaf <ArrowUpRight size={18} />
+                </Link>
+              </Button>
+              <span className="hero-note text-[11px] text-foreground/50">
+                No account. Just your imagination.
+              </span>
+            </div>
+            <div className="hero-community mt-7 flex items-center gap-4">
+              <div className="flex -space-x-2" aria-hidden="true">
+                {themes.slice(0, 3).map((theme) => (
+                  <span
+                    key={theme.id}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-muted ring-4 ring-card"
+                  >
+                    <ThemeIcon theme={theme.id} size={16} />
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs leading-5 text-foreground/55">
+                <strong className="font-semibold text-foreground">
+                  {tree?.total ?? "—"} {tree?.total === 1 ? "hope" : "hopes"}
+                </strong>{" "}
+                taking root. <br />
+                Every voice makes it grow.
+              </p>
             </div>
           </div>
-        </div>
-        <div className="forest grain relative flex min-h-[430px] flex-col items-center justify-center overflow-hidden rounded-t-[180px] rounded-b-2xl p-5 md:rounded-t-[240px]">
-          <div className="absolute left-8 right-8 top-9 flex items-center justify-between text-[9px] uppercase tracking-[.18em] text-white/55">
-            <span>
-              {tree?.leaves.length
-                ? "The collective canopy"
-                : "A canopy of possibility"}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1 w-1 rounded-full bg-[#b9d9a6]" />
-              Living & growing
-            </span>
+          <div className="home-tree">
+            <TreeCanvas
+              leaves={tree?.leaves || []}
+              illustrative={!tree?.leaves.length}
+              settings={tree?.settings}
+              contributionCount={tree?.total || 0}
+              className="home-tree-canvas"
+              showControls={false}
+              environment="garden"
+            />
           </div>
-          <TreeCanvas
-            leaves={tree?.leaves || []}
-            illustrative={!tree?.leaves.length}
-            settings={tree?.settings}
-            className="w-full pt-9"
-          />
-          <span className="absolute bottom-8 serif text-sm italic text-[#d4c69e]">
-            Rooted in values. Growing through people.
-          </span>
         </div>
       </section>
-      <section className="mx-auto max-w-7xl px-6 py-16 md:px-10">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
+      <section className="mx-auto max-w-[1440px] px-5 py-12 md:px-10 md:py-16">
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
           <div>
-            <p className="eyebrow mb-3 text-foreground/55">
-              A small moment. A shared possibility.
+            <p className="eyebrow mb-3 text-foreground/45">
+              A moment for tomorrow
             </p>
-            <h2 className="text-4xl tracking-tight">
+            <h2 className="text-3xl tracking-tight md:text-4xl">
               Your hope has a place here.
             </h2>
           </div>
-          <p className="max-w-xs text-sm leading-relaxed text-foreground/60">
-            No account. No app. Just a moment to imagine something good.
-          </p>
+          <Link
+            href="/join"
+            className="flex min-h-11 items-center gap-3 text-xs"
+          >
+            Make it part of the story <ArrowRight size={15} />
+          </Link>
         </div>
-        <div className="grid gap-8 border-t border-border pt-8 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3">
           {[
-            [
-              "01",
-              "Pause & imagine",
-              "Choose what matters to you. Share one hope for the city's future.",
-            ],
-            [
-              "02",
-              "Watch it take root",
-              "Your approved hope becomes a glowing leaf on our shared tree.",
-            ],
-            [
-              "03",
-              "Follow your curiosity",
-              "Discover a chamber that connects with your vision of tomorrow.",
-            ],
-          ].map(([number, title, body]) => (
-            <div key={number}>
-              <span className="text-xs text-[#9b824b]">{number} /</span>
-              <h3 className="mb-3 mt-5 text-2xl">{title}</h3>
-              <p className="max-w-xs text-sm leading-relaxed text-foreground/60">
+            {
+              number: "01",
+              title: "Pause & imagine",
+              body: "Choose what matters to you. Share one hope for the city's future.",
+              Icon: Sparkles,
+            },
+            {
+              number: "02",
+              title: "Watch it take root",
+              body: "Your approved hope becomes a glowing leaf on our shared tree.",
+              Icon: Sprout,
+            },
+            {
+              number: "03",
+              title: "Follow your curiosity",
+              body: "Discover a chamber that connects with your vision of tomorrow.",
+              Icon: Compass,
+            },
+          ].map(({ number, title, body, Icon }) => (
+            <div key={number} className="rounded-3xl bg-card p-7">
+              <div className="mb-9 flex items-center justify-between">
+                <span
+                  className={`flex h-11 w-11 items-center justify-center rounded-full ${number === "01" ? "bg-primary text-accent" : "bg-muted"}`}
+                >
+                  <Icon size={20} strokeWidth={1.5} />
+                </span>
+                <span className="text-[11px] text-foreground/35">
+                  /{number}
+                </span>
+              </div>
+              <h3 className="mb-3 text-xl">{title}</h3>
+              <p className="max-w-xs text-sm leading-6 text-foreground/55">
                 {body}
               </p>
             </div>
           ))}
         </div>
       </section>
-      <section className="mx-auto mb-16 max-w-7xl px-6 md:px-10">
-        <div className="rounded-2xl border border-border px-7 py-8">
-          <p className="eyebrow mb-6 text-foreground/50">
-            Many branches. One shared future.
-          </p>
-          <div className="flex flex-wrap gap-x-8 gap-y-4">
+      <section className="mx-auto mb-12 max-w-[1440px] px-5 md:px-10">
+        <div className="rounded-[28px] bg-[#e0e3d5] p-6 md:p-9">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="eyebrow mb-3 text-foreground/45">
+                Many branches. One shared future.
+              </p>
+              <h2 className="text-2xl md:text-3xl">What matters to you?</h2>
+            </div>
+            <p className="max-w-xs text-xs leading-5 text-foreground/55">
+              A thriving city starts with the things we care about.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {themes.map((theme) => (
               <Link
                 href={`/join?theme=${theme.id}`}
                 key={theme.id}
-                className="group flex items-center gap-2 text-xs"
+                className="group flex flex-col justify-between gap-6 rounded-2xl bg-card/80 p-4 transition-colors hover:bg-card"
               >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: theme.color }}
-                />
-                {theme.label}
-                <MoveUpRight
-                  size={12}
-                  className="opacity-0 transition-opacity group-hover:opacity-60"
-                />
+                <div className="flex items-center justify-between">
+                  <ThemeIcon theme={theme.id} size={22} />
+                  <ArrowUpRight
+                    size={14}
+                    className="text-foreground/35 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                  />
+                </div>
+                <span className="text-xs leading-5">{theme.label}</span>
               </Link>
             ))}
           </div>

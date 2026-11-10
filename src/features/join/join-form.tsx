@@ -162,7 +162,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
         <LeafResult leaf={leaf} />
         <Button
           className="mt-6 w-full"
-          variant="outline"
+          variant="secondary"
           onClick={() => {
             try {
               sessionStorage.removeItem("gmc-hope-receipt");
@@ -189,7 +189,9 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           <ArrowLeft size={14} />
           Back to the tree
         </Link>
-        <p className="eyebrow mb-5 text-[#8b7749]">Your voice belongs here</p>
+        <p className="eyebrow mb-5 text-foreground/45">
+          Your voice belongs here
+        </p>
         <h1 className="text-3xl leading-[1.1] tracking-[-.04em] md:text-6xl">
           A little hope.
           <br />A living <em>future.</em>
@@ -198,7 +200,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           Take a moment to imagine the city you want to see. We'll help your
           hope find its branch.
         </p>
-        <div className="mt-10 hidden items-center gap-3 border-t border-border pt-6 text-xs text-foreground/55 md:flex">
+        <div className="mt-10 hidden items-center gap-3 pt-6 text-xs text-foreground/55 md:flex">
           <ShieldCheck size={18} strokeWidth={1.4} />
           <span>
             Anonymous by design.
@@ -207,21 +209,21 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           </span>
         </div>
       </aside>
-      <section ref={section} className="min-w-0 scroll-mt-5">
+      <section
+        ref={section}
+        className="min-w-0 scroll-mt-5 rounded-3xl bg-card p-5 sm:p-8"
+      >
         {!online && (
           <p
             role="status"
-            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"
+            className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900"
           >
             Your phone is offline. Your draft is kept in this tab. Reconnect to
             grow your leaf.
           </p>
         )}
         {paused && (
-          <p
-            role="status"
-            className="mb-4 rounded-lg border border-border bg-muted p-3 text-xs"
-          >
+          <p role="status" className="mb-4 rounded-lg bg-muted p-3 text-xs">
             The tree is resting for a moment. Keep your hope here and try again
             shortly.
           </p>
@@ -260,7 +262,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
                 {themes.map((item) => (
                   <label
                     key={item.id}
-                    className={`relative flex min-h-32 cursor-pointer flex-col justify-between rounded-xl border p-4 transition-all ${theme === item.id ? "border-primary bg-[#e9eee2] shadow-sm" : "border-border bg-white/40 hover:border-[#8caa91]"}`}
+                    className={`relative flex min-h-32 cursor-pointer flex-col justify-between rounded-2xl p-4 transition-all ${theme === item.id ? "bg-accent shadow-sm" : "bg-muted hover:bg-foreground/10"}`}
                   >
                     <input
                       className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
@@ -277,7 +279,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
                       {theme === item.id ? (
                         <Check size={16} />
                       ) : (
-                        <span className="h-4 w-4 rounded-full border border-border" />
+                        <span className="h-4 w-4 rounded-full bg-card" />
                       )}
                     </span>
                     <span className="mt-4 text-xs leading-relaxed peer-focus-visible:underline">
@@ -309,7 +311,9 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             </div>
             <div>
               <h2 className="mb-3 text-3xl">
-                <label htmlFor="aspiration">What is your hope for GMC?</label>
+                <label htmlFor="aspiration">
+                  What is your hope for the city?
+                </label>
               </h2>
               <p className="mb-5 text-sm text-foreground/60">
                 One sentence can be the start of something beautiful.
@@ -325,7 +329,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
                 onChange={(event) => edit(event.target.value)}
                 placeholder="I hope our city…"
                 aria-describedby="aspiration-help"
-                className="w-full resize-none rounded-xl border border-border bg-white/70 p-5 text-base leading-relaxed placeholder:text-foreground/35 focus:border-primary focus:outline-none disabled:opacity-60"
+                className="w-full resize-none rounded-2xl bg-muted p-5 text-base leading-relaxed placeholder:text-foreground/35 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
               />
               <div
                 id="aspiration-help"
@@ -341,7 +345,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               type="button"
               disabled={busy}
               onClick={() => edit(themeFor(theme).prompt)}
-              className="flex min-h-11 w-full items-start gap-3 rounded-xl border border-dashed border-border px-4 py-3 text-left text-xs leading-relaxed text-foreground/65"
+              className="flex min-h-11 w-full items-start gap-3 rounded-2xl bg-muted px-4 py-3 text-left text-xs leading-relaxed text-foreground/65"
             >
               <Sparkles size={16} className="mt-0.5 shrink-0" />
               <span>
@@ -358,7 +362,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
                 checked={consent}
                 disabled={busy}
                 onChange={(event) => setConsent(event.target.checked)}
-                className="mt-1 h-4 w-4 shrink-0 accent-[#214e3b]"
+                className="mt-1 h-4 w-4 shrink-0 accent-primary"
               />
               <span>
                 I agree that my approved, anonymous leaf can appear on the
@@ -371,7 +375,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               </span>
             </label>
             <p className="text-[10px] leading-relaxed text-foreground/50">
-              When AI is enabled, your words are sent to OpenAI for
+              When interpretation is enabled, your words are sent to OpenAI for
               interpretation and safety checks. If unavailable, a curated leaf
               is chosen using your theme and keywords. Only your approved leaf
               is public.
@@ -379,7 +383,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             {error && (
               <p
                 role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs leading-relaxed text-red-800"
+                className="rounded-lg bg-red-50 bg-red-50 p-3 text-xs leading-relaxed text-red-800"
               >
                 {error}
               </p>

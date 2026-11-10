@@ -21,6 +21,7 @@ Open http://localhost:3000. Setup creates `.env.local` with a random staff passw
 | `/`          | Introduction, live tree preview, theme shortcuts                 |
 | `/join`      | Theme selection, aspiration, consent, result                     |
 | `/display`   | Reception tree, QR, queued leaf arrivals, reflection, fullscreen |
+| `/tree`      | Full-screen interactive Tree Studio, growth previews and exports |
 | `/leaf/[id]` | Public keepsake, sharing/copy fallback, downloadable SVG         |
 | `/chambers`  | Four-chamber guide and suggested thematic pathways               |
 | `/privacy`   | Participation, external processing, cookies and retention        |
@@ -33,6 +34,22 @@ The tree reuses the procedural branch/species/age algorithms from [Mike Fernande
 Our renderer adds GMC palettes, wind, foliage, deterministic visitor markers, queued arrivals, accessible leaf selection and an adaptive camera. The full-viewport layout keeps the tree, QR and message panel visible in either orientation. Tested viewport sizes include 1080×1920, 2160×3840, 1920×1080, 3840×2160, 1280×720 and phones. The physical TV and browser still need an on-site check.
 
 3D uses WebGL2; WebGPU is not required. If WebGL is unavailable or the context is lost, the interactive illustrated tree takes over. Staff can choose illustration explicitly. Automatic quality caps pixel density and foliage work; reduced-motion mode renders only when the view changes. Tree visuals are generated locally without external image, font or music downloads.
+
+### Interactive Tree Studio
+
+Open `/tree`, or choose **Customize tree** on the reception screen. Drag the tree to orbit; scroll or pinch to zoom. The view also has zoom/reset buttons and keyboard arrows, plus/minus, and Home. Press H to hide/show the panel, or Space to choose a new seed while not editing a field.
+
+The studio follows the reference project's layout: six species on the left, five palettes across the top, and a collapsible customization panel. Controls cover branching, trunk/root shape, spread, crookedness, leaf shape/size, season, custom colours, wind/flutter, camera rotation, lighting, grass and performance. Manual age mode uses the upstream leaf-cluster painters for a full reference-style canopy.
+
+Everyone can experiment locally; **Save to reception** requires staff sign-in. Preview counts never create visitor records and are never saved with the settings. PNG, GLB and configuration exports capture the current preview. JSON import validates the same settings schema before applying a local preview. GLB is a static snapshot of the currently grown geometry, without live wind or future arrivals.
+
+### Growth from visitor hopes
+
+The default `growthMode` is `contributions`. At zero approved hopes the tree is a small bare sapling, with **zero decorative leaves**. Each accepted contribution adds a leaf. Its growth attributes unfold and thicken the same branch geometry continuously, and branches extend as the count increases. The initial camera frame stays fixed so growth is visibly larger rather than being cancelled by automatic zoom.
+
+`leavesForMaturity` controls the pace (48 by default). At higher counts the tree continues to expand gradually. Hidden leaves stop contributing; rejected and duplicate submissions do not add growth. Existing approved contributions still count; this update does not delete or reset event data. The studio's **Bare** preview shows the empty start without changing records.
+
+The live renderer draws individual contribution leaves, capped at 2,400 in low quality and 6,000 in high quality. Above those limits, the canopy is an aggregate visual sample; every accepted record remains in SQLite and total counts still drive growth. Up to 120 recent leaves remain individually selectable. The illustration fallback also starts bare and scales with contributions.
 
 ## Enable OpenAI
 
@@ -98,7 +115,8 @@ Staff operations are audited locally. The console shows up to 500 recent records
 src/app/                 Pages and API routes
 src/features/home/       Introduction and live preview
 src/features/join/       Guided mobile submission
-src/features/display/    Procedural 3D, illustration fallback, queue and kiosk
+src/features/display/    Growing branch model, orbit camera, 3D/fallback and kiosk
+src/features/studio/     Full-screen authoring, controls, growth previews and exports
 src/features/leaf/       Result, share and SVG download
 src/features/admin/      Staff console
 src/components/ui/       Local shadcn-style components

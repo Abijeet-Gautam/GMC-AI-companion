@@ -1,7 +1,9 @@
 import * as THREE from "three";
-import { generateTree, type Clump } from "@/vendor/just-a-simple-tree";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { createTreeModel, type GrowthMetrics } from "./tree-model";
 import { treePalettes, type TreeSettings } from "@/lib/tree-settings";
-import { themes, type Leaf } from "@/lib/catalog";
+import type { Leaf } from "@/lib/catalog";
+import { createTreeEnvironment } from "./tree-environment";
 
 export type ProjectedLeaf = {
   id: string;
@@ -10,517 +12,459 @@ export type ProjectedLeaf = {
   visible: boolean;
 };
 export type SceneController = {
-  update(leaves: Leaf[], activeId?: string, arrivalId?: string): void;
+  update(
+    leaves: Leaf[],
+    activeId?: string,
+    arrivalId?: string,
+    count?: number,
+  ): void;
+  configure(settings: TreeSettings): void;
+  breeze(): void;
+  resetView(): void;
+  zoom(factor: number): void;
+  orbit(horizontal: number, vertical?: number): void;
+  capture(): Promise<Blob>;
+  exportGlb(): Promise<ArrayBuffer>;
   dispose(): void;
 };
-function random(seed: number) {
-  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
-  return x - Math.floor(x);
-}
-function hash(value: string) {
-  return Array.from(value).reduce(
-    (sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0,
-    7,
-  );
-}
-
-function leafTexture(cluster: boolean) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 128;
-  const ctx = canvas.getContext("2d")!;
-  const draw = (x: number, y: number, angle: number, size: number) => {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.scale(size, size);
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.moveTo(0, 22);
-    ctx.bezierCurveTo(-24, 6, -27, -22, 0, -40);
-    ctx.bezierCurveTo(26, -22, 24, 5, 0, 22);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(90,120,50,.24)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, 17);
-    ctx.lineTo(0, -31);
-    ctx.stroke();
-    ctx.restore();
-  };
-  if (cluster) {
-    draw(42, 44, -0.85, 0.84);
-    draw(83, 42, 0.72, 0.84);
-    draw(35, 88, -1.25, 0.76);
-    draw(86, 86, 1.12, 0.8);
-    draw(64, 69, 0, 0.9);
-  } else draw(64, 72, 0, 1.5);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-// GPU sway keeps the root still and bends upper branches and foliage together.
-function windMaterial(
-  material: THREE.MeshToonMaterial,
-  time: { value: number },
-  strength: number,
-  height: number,
-) {
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms.uTime = time;
-    shader.vertexShader =
-      `uniform float uTime;\n${shader.vertexShader}`.replace(
-        "#include <begin_vertex>",
-        `
-      #include <begin_vertex>
-      vec3 worldLeaf = transformed;
-      #ifdef USE_INSTANCING
-        worldLeaf = (instanceMatrix * vec4(transformed, 1.0)).xyz;
-      #endif
-      float bend = pow(max(worldLeaf.y / ${Math.max(height, 1).toFixed(3)}, 0.0), 2.0);
-      float gust = sin(uTime * .65 + worldLeaf.y * .8) * .6 + sin(uTime * .37 + worldLeaf.x * 1.3) * .4;
-      transformed.x += gust * bend * ${strength.toFixed(3)};
-      transformed.z += sin(uTime * .52 + worldLeaf.y) * bend * ${(strength * 0.4).toFixed(3)};
-    `,
-      );
-  };
-}
-
 export function createTreeScene(
   host: HTMLElement,
-  settings: TreeSettings,
-  onProject: (items: ProjectedLeaf[]) => void,
+  initial: TreeSettings,
+  onProject: (items: ProjectedLeaf[], metrics?: GrowthMetrics) => void,
   onFailure: () => void,
+  environment: "transparent" | "garden" = "transparent",
 ): SceneController {
-  let low =
-    settings.quality === "low" ||
-    (settings.quality === "auto" &&
-      (window.innerWidth < 700 || (navigator.hardwareConcurrency || 4) <= 4));
+  let settings = initial,
+    disposed = false,
+    dirty = true,
+    lastFrame = 0,
+    lastTick = 0,
+    first = true,
+    userView = false,
+    interacting = false,
+    lastInteraction = -10000,
+    gustStarted = -10000;
+  let leaves: Leaf[] = [],
+    activeId: string | undefined,
+    arrivalId: string | undefined,
+    count = 0;
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const renderer = new THREE.WebGLRenderer({
     alpha: true,
-    antialias: !low,
-    powerPreference: "low-power",
+    antialias: settings.quality !== "low",
+    powerPreference: "high-performance",
   });
-  const gl = renderer.getContext();
-  const debug = gl.getExtension("WEBGL_debug_renderer_info");
+  const gl = renderer.getContext(),
+    debug = gl.getExtension("WEBGL_debug_renderer_info");
   const software = debug
     ? /swiftshader|llvmpipe|software/i.test(
         String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)),
       )
     : false;
-  if (software && settings.quality === "auto") low = true;
+  const isLow = () =>
+    settings.quality === "low" ||
+    (settings.quality === "auto" &&
+      (software ||
+        innerWidth < 700 ||
+        (navigator.hardwareConcurrency || 4) <= 4));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.setClearColor(0x000000, 0);
-  renderer.domElement.setAttribute("aria-hidden", "true");
   renderer.domElement.className = "procedural-canvas";
+  renderer.domElement.setAttribute("aria-hidden", "true");
   host.appendChild(renderer.domElement);
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
-  const tree = new THREE.Group();
-  tree.rotation.y = THREE.MathUtils.degToRad(settings.rotation);
-  scene.add(tree);
-  const gradient = new THREE.DataTexture(
-    new Uint8Array([
-      65, 65, 65, 255, 140, 140, 140, 255, 205, 205, 205, 255, 255, 255, 255,
-      255,
-    ]),
-    4,
-    1,
-    THREE.RGBAFormat,
-  );
-  gradient.minFilter = gradient.magFilter = THREE.NearestFilter;
-  gradient.needsUpdate = true;
-  const palette = treePalettes[settings.palette],
-    texture = leafTexture(true),
-    single = leafTexture(false);
-  const time = { value: 0 },
-    disposableTextures = [gradient, texture, single];
-  let geometry: THREE.BufferGeometry | undefined;
+  const scene = new THREE.Scene(),
+    camera = new THREE.PerspectiveCamera(34, 1, 0.05, 160);
+  const controls = new OrbitControls(camera, host);
+  controls.enableDamping = !motion.matches;
+  controls.dampingFactor = 0.1;
+  controls.enablePan = false;
+  controls.minPolarAngle = 0.2;
+  controls.maxPolarAngle = Math.PI * 0.49;
+  controls.rotateSpeed = 0.65;
+  controls.zoomSpeed = 0.8;
+  let model: ReturnType<typeof createTreeModel>;
   try {
-    const generated = generateTree(settings);
-    geometry = generated.geometry;
-    const clumps = generated.clumps;
-    if (!clumps.length || !geometry.getAttribute("position")?.count)
-      throw new Error("Tree geometry is empty");
-    const box = new THREE.Box3().setFromBufferAttribute(
-      geometry.getAttribute("position") as THREE.BufferAttribute,
-    );
-    for (const clump of clumps) {
-      const extent = new THREE.Vector3(
-        clump.radius,
-        clump.radius * (clump.flatten || 1),
-        clump.radius,
-      );
-      box.expandByPoint(clump.position.clone().add(extent));
-      box.expandByPoint(clump.position.clone().sub(extent));
-    }
-    const height = box.max.y,
-      span = box.getSize(new THREE.Vector3());
-    const woodMaterial = new THREE.MeshToonMaterial({
-      color: palette.wood,
-      gradientMap: gradient,
-    });
-    windMaterial(
-      woodMaterial,
-      time,
-      motion.matches ? 0 : settings.wind * 0.1,
-      height,
-    );
-    tree.add(new THREE.Mesh(geometry, woodMaterial));
-    const foliageMaterial = new THREE.MeshToonMaterial({
-      color: "white",
-      gradientMap: gradient,
-      map: texture,
-      alphaTest: 0.45,
-      side: THREE.DoubleSide,
-    });
-    windMaterial(
-      foliageMaterial,
-      time,
-      motion.matches ? 0 : settings.wind * 0.16,
-      height,
-    );
-    const cards = Math.min(
-      low ? 1600 : 4200,
-      Math.floor(clumps.length * (low ? 30 : 50) * settings.density),
-    );
-    const foliage = new THREE.InstancedMesh(
-      new THREE.PlaneGeometry(1, 1),
-      foliageMaterial,
-      cards,
-    );
-    const dummy = new THREE.Object3D(),
-      color = new THREE.Color(),
-      normal = new THREE.Vector3();
-    for (let i = 0; i < cards; i++) {
-      const seed = settings.seed + i * 7,
-        clump = clumps[i % clumps.length];
-      const angle = random(seed) * Math.PI * 2,
-        vertical = random(seed + 1) * 2 - 1,
-        side = Math.sqrt(1 - vertical * vertical);
-      normal.set(Math.cos(angle) * side, vertical, Math.sin(angle) * side);
-      const radius = clump.radius * (0.4 + random(seed + 2) * 0.65);
-      dummy.position
-        .copy(clump.position)
-        .add(
-          new THREE.Vector3(
-            normal.x * radius,
-            normal.y * radius * (clump.flatten || 1),
-            normal.z * radius,
-          ),
-        );
-      dummy.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-      dummy.rotateZ(random(seed + 3) * Math.PI * 2);
-      const size = Math.max(
-        0.08,
-        clump.radius *
-          (low ? 1.3 : 1.05) *
-          (0.8 + random(seed + 4) * 0.45) *
-          Math.max(clump.grown ?? 1, 0.2),
-      );
-      dummy.scale.set(size, size, size);
-      dummy.updateMatrix();
-      foliage.setMatrixAt(i, dummy.matrix);
-      const illumination = Math.max(
-        0,
-        normal.dot(new THREE.Vector3(-0.4, 0.8, 0.5)),
-      );
-      color.set(
-        palette.leaves[illumination > 0.65 ? 2 : illumination > 0.05 ? 1 : 0],
-      );
-      color.multiplyScalar(0.8 + random(seed + 5) * 0.25);
-      foliage.setColorAt(i, color);
-    }
-    foliage.instanceMatrix.needsUpdate = true;
-    if (foliage.instanceColor) foliage.instanceColor.needsUpdate = true;
-    tree.add(foliage);
-    scene.add(new THREE.HemisphereLight(0xf3edce, 0x193f31, 1.25));
-    const sunlight = new THREE.DirectionalLight(0xffefcc, 1.8);
-    sunlight.position.set(-3, 8, 6);
-    scene.add(sunlight);
-    const rim = new THREE.DirectionalLight(0xacc89e, 0.8);
-    rim.position.set(4, 4, -4);
-    scene.add(rim);
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(Math.max(span.x, span.z) * 0.42, 64),
-      new THREE.MeshBasicMaterial({
-        color: palette.grass,
-        transparent: true,
-        opacity: 0.2,
-        depthWrite: false,
-      }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.025;
-    scene.add(ground);
-    const grass = new THREE.InstancedMesh(
-      new THREE.PlaneGeometry(0.025, 0.2),
-      new THREE.MeshToonMaterial({
-        color: palette.grass,
-        side: THREE.DoubleSide,
-        gradientMap: gradient,
-      }),
-      low ? 180 : 450,
-    );
-    for (let i = 0; i < grass.count; i++) {
-      const angle = random(i + 19) * Math.PI * 2,
-        radius = Math.sqrt(random(i + 4)) * Math.max(span.x, span.z) * 0.35;
-      dummy.position.set(
-        Math.cos(angle) * radius,
-        0.08,
-        Math.sin(angle) * radius,
-      );
-      dummy.rotation.set(0, angle, (random(i + 2) - 0.5) * 0.6);
-      dummy.scale.setScalar(0.5 + random(i + 3));
-      dummy.updateMatrix();
-      grass.setMatrixAt(i, dummy.matrix);
-    }
-    tree.add(grass);
-    const markerGroup = new THREE.Group();
-    tree.add(markerGroup);
-    const markers = new Map<
-      string,
-      { sprite: THREE.Sprite; position: THREE.Vector3; leaf: Leaf }
-    >();
-    const flight = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: single,
-        color: "#e7d78d",
-        transparent: true,
-        depthTest: false,
-      }),
-    );
-    flight.visible = false;
-    flight.scale.setScalar(0.24);
-    scene.add(flight);
-    let activeId: string | undefined,
-      lastArrival: string | undefined,
-      flightStarted = 0,
-      flightTarget = new THREE.Vector3();
-    const projected = new THREE.Vector3();
-    let width = 0,
-      canvasHeight = 0,
-      disposed = false,
-      lastFrame = 0,
-      dirty = true;
-    const centre = box
-      .getCenter(new THREE.Vector3())
-      .applyMatrix4(tree.matrixWorld);
-    const cameraDirection = new THREE.Vector3(0, 0.1, 1).normalize();
-    const cameraSide = new THREE.Vector3(1, 0, 0),
-      cameraUp = new THREE.Vector3()
-        .crossVectors(cameraDirection, cameraSide)
-        .normalize();
-    const framing: THREE.Vector3[] = [];
-    const vertices = geometry.getAttribute("position");
-    tree.updateMatrixWorld(true);
-    // Fit actual geometry and foliage extents, rather than empty box corners.
-    for (let i = 0; i < vertices.count; i += 12)
-      framing.push(
-        new THREE.Vector3()
-          .fromBufferAttribute(vertices, i)
-          .applyMatrix4(tree.matrixWorld),
-      );
-    for (const clump of clumps)
-      for (const direction of [
-        new THREE.Vector3(1, 0, 0),
-        new THREE.Vector3(-1, 0, 0),
-        new THREE.Vector3(0, 1, 0),
-        new THREE.Vector3(0, -1, 0),
-        new THREE.Vector3(0, 0, 1),
-        new THREE.Vector3(0, 0, -1),
-      ]) {
-        direction.multiplyScalar(clump.radius * 1.22);
-        direction.y *= clump.flatten || 1;
-        framing.push(
-          direction.add(clump.position).applyMatrix4(tree.matrixWorld),
-        );
-      }
-    centre.copy(
-      new THREE.Box3().setFromPoints(framing).getCenter(new THREE.Vector3()),
-    );
-    function resize() {
-      dirty = true;
-      width = Math.max(1, host.clientWidth);
-      canvasHeight = Math.max(1, host.clientHeight);
-      // Bound GPU work independently of the TV's physical pixel density.
-      const pixelBudget = software ? 1200000 : low ? 1800000 : 4000000;
-      renderer.setPixelRatio(
-        Math.min(
-          window.devicePixelRatio || 1,
-          low ? 1 : 1.5,
-          Math.sqrt(pixelBudget / (width * canvasHeight)),
-        ),
-      );
-      renderer.setSize(width, canvasHeight, false);
-      camera.aspect = width / canvasHeight;
-      const verticalFov = THREE.MathUtils.degToRad(camera.fov),
-        horizontalFov =
-          2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
-      let distance = 1;
-      for (const point of framing) {
-        const relative = point.clone().sub(centre),
-          z = relative.dot(cameraDirection);
-        distance = Math.max(
-          distance,
-          z + Math.abs(relative.dot(cameraSide)) / Math.tan(horizontalFov / 2),
-          z + Math.abs(relative.dot(cameraUp)) / Math.tan(verticalFov / 2),
-        );
-      }
-      distance *= 1.08;
-      camera.position.copy(centre).addScaledVector(cameraDirection, distance);
-      camera.lookAt(centre);
-      camera.updateProjectionMatrix();
-      camera.updateMatrixWorld(true);
-    }
-    function markerPosition(leaf: Leaf) {
-      const category = themes.findIndex((theme) => theme.id === leaf.category),
-        seed = hash(leaf.id);
-      // Each theme occupies a stable slice of the actual generated crown.
-      const sorted = [...clumps].sort((a, b) => a.position.x - b.position.x);
-      const choices = sorted.filter((_, i) => i % 6 === category);
-      const clump: Clump = (choices.length ? choices : sorted)[
-        seed % (choices.length || sorted.length)
-      ];
-      return clump.position
-        .clone()
-        .add(
-          new THREE.Vector3(
-            (random(seed) - 0.5) * clump.radius,
-            (random(seed + 1) - 0.3) * clump.radius * 0.6,
-            clump.radius * 1.02 + 0.06,
-          ),
-        );
-    }
-    const update = (
-      leaves: Leaf[],
-      nextActive?: string,
-      arrivalId?: string,
-    ) => {
-      dirty = true;
-      activeId = nextActive;
-      const wanted = new Set(leaves.map((leaf) => leaf.id));
-      for (const [id, marker] of markers)
-        if (!wanted.has(id)) {
-          markerGroup.remove(marker.sprite);
-          (marker.sprite.material as THREE.SpriteMaterial).dispose();
-          markers.delete(id);
-        }
-      for (const leaf of leaves)
-        if (!markers.has(leaf.id)) {
-          const material = new THREE.SpriteMaterial({
-            map: single,
-            color: themes.find((theme) => theme.id === leaf.category)!.color,
-            transparent: true,
-            depthTest: false,
-            depthWrite: false,
-          });
-          const sprite = new THREE.Sprite(material),
-            position = markerPosition(leaf);
-          sprite.position.copy(position);
-          sprite.scale.set(0.15, 0.19, 1);
-          markerGroup.add(sprite);
-          markers.set(leaf.id, { sprite, position, leaf });
-        }
-      if (
-        arrivalId &&
-        arrivalId !== lastArrival &&
-        markers.has(arrivalId) &&
-        !motion.matches
-      ) {
-        lastArrival = arrivalId;
-        flightStarted = performance.now();
-        flightTarget = markers
-          .get(arrivalId)!
-          .position.clone()
-          .applyMatrix4(tree.matrixWorld);
-        flight.visible = true;
-        (flight.material as THREE.SpriteMaterial).color.set(
-          themes.find(
-            (theme) => theme.id === markers.get(arrivalId)!.leaf.category,
-          )!.color,
-        );
-      }
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(host);
-    tree.updateMatrixWorld(true);
-    resize();
-    const lose = (event: Event) => {
-      event.preventDefault();
-      if (!disposed) onFailure();
-    };
-    renderer.domElement.addEventListener("webglcontextlost", lose);
-    renderer.setAnimationLoop((now) => {
-      if (
-        disposed ||
-        document.hidden ||
-        ((motion.matches || settings.wind === 0) &&
-          !dirty &&
-          !flight.visible) ||
-        now - lastFrame < (software ? 1000 / 12 : low ? 1000 / 24 : 1000 / 30)
-      )
-        return;
-      lastFrame = now;
-      dirty = false;
-      time.value = motion.matches ? 0 : now / 1000;
-      if (flight.visible) {
-        const t = Math.min(1, (now - flightStarted) / 1200),
-          eased = 1 - (1 - t) ** 3;
-        flight.position.set(0, height * 0.12, 0).lerp(flightTarget, eased);
-        flight.position.x += Math.sin(t * Math.PI) * 0.8;
-        flight.scale.setScalar(0.18 + Math.sin(t * Math.PI) * 0.1);
-        if (t === 1) flight.visible = false;
-      }
-      const items: ProjectedLeaf[] = [];
-      for (const [id, marker] of markers) {
-        marker.sprite.scale.setScalar(id === activeId ? 0.25 : 0.16);
-        projected
-          .copy(marker.position)
-          .applyMatrix4(tree.matrixWorld)
-          .project(camera);
-        items.push({
-          id,
-          x: (projected.x * 0.5 + 0.5) * width,
-          y: (-projected.y * 0.5 + 0.5) * canvasHeight,
-          visible: projected.z > -1 && projected.z < 1,
-        });
-      }
-      onProject(items);
-      renderer.render(scene, camera);
-    });
-    const dispose = () => {
-      if (disposed) return;
-      disposed = true;
-      observer.disconnect();
-      renderer.setAnimationLoop(null);
-      renderer.domElement.removeEventListener("webglcontextlost", lose);
-      const geometries = new Set<THREE.BufferGeometry>(),
-        materials = new Set<THREE.Material>();
-      scene.traverse((object) => {
-        if (object instanceof THREE.InstancedMesh) object.dispose();
-        if (object instanceof THREE.Mesh) {
-          geometries.add(object.geometry);
-          const material = Array.isArray(object.material)
-            ? object.material
-            : [object.material];
-          material.forEach((item) => materials.add(item));
-        }
-        if (object instanceof THREE.Sprite) materials.add(object.material);
-      });
-      geometries.forEach((item) => item.dispose());
-      materials.forEach((item) => item.dispose());
-      disposableTextures.forEach((item) => item.dispose());
-      renderer.dispose();
-      renderer.domElement.remove();
-    };
-    return { update, dispose };
+    model = createTreeModel(settings, isLow());
   } catch (error) {
-    geometry?.dispose();
-    disposableTextures.forEach((item) => item.dispose());
+    controls.dispose();
     renderer.dispose();
     renderer.domElement.remove();
     throw error;
   }
+  scene.add(model.group);
+  const sky = new THREE.HemisphereLight(
+      "#bfd8ff",
+      "#6b5a45",
+      settings.skyIntensity,
+    ),
+    sun = new THREE.DirectionalLight("#fff3df", settings.sunIntensity * 1.4),
+    rim = new THREE.DirectionalLight("#e7f4df", 0.35);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(
+    software ? 512 : isLow() ? 1024 : 2048,
+    software ? 512 : isLow() ? 1024 : 2048,
+  );
+  sun.shadow.camera.left = sun.shadow.camera.bottom = -settings.size * 2;
+  sun.shadow.camera.right = sun.shadow.camera.top = settings.size * 2;
+  sun.shadow.camera.near = 0.1;
+  sun.shadow.camera.far = 60;
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.025;
+  rim.position.set(4, 4, -4);
+  scene.add(sky, sun, sun.target, rim);
+  let garden = createTreeEnvironment(scene, settings, isLow());
+  host.dataset.grassBlades = String(garden.grassCount);
+  host.dataset.shadows = "true";
+  const centre = new THREE.Vector3(),
+    corner = new THREE.Vector3();
+  let fittedDistance = 10;
+  function fit() {
+    const width = Math.max(1, host.clientWidth),
+      height = Math.max(1, host.clientHeight),
+      budget = software
+        ? 1600000
+        : isLow()
+          ? 2000000
+          : settings.quality === "high"
+            ? 9000000
+            : 6000000;
+    renderer.setPixelRatio(
+      Math.min(
+        devicePixelRatio || 1,
+        isLow() ? 1 : 1.5,
+        Math.sqrt(budget / (width * height)),
+      ),
+    );
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    const box = model.bounds
+      .clone()
+      .expandByScalar(0.15)
+      .applyMatrix4(
+        new THREE.Matrix4().makeRotationY(
+          THREE.MathUtils.degToRad(settings.rotation),
+        ),
+      );
+    box.min.multiplyScalar(environment === "garden" ? 1.04 : 1.14);
+    box.max.multiplyScalar(environment === "garden" ? 1.04 : 1.14);
+    box.getCenter(centre);
+    const tanY = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2),
+      tanX = tanY * camera.aspect;
+    let distance = 1;
+    for (let i = 0; i < 8; i++) {
+      corner
+        .set(
+          i & 1 ? box.max.x : box.min.x,
+          i & 2 ? box.max.y : box.min.y,
+          i & 4 ? box.max.z : box.min.z,
+        )
+        .sub(centre);
+      distance = Math.max(
+        distance,
+        corner.z + Math.abs(corner.x) / tanX,
+        corner.z + Math.abs(corner.y) / tanY,
+      );
+    }
+    fittedDistance = distance * (environment === "garden" ? 0.9 : 1.04);
+    controls.target.copy(centre);
+    controls.minDistance = Math.max(1, fittedDistance * 0.25);
+    controls.maxDistance = fittedDistance * 2.4;
+    if (!userView) {
+      camera.position
+        .copy(centre)
+        .add(
+          new THREE.Vector3(0, 0.08, 1)
+            .normalize()
+            .multiplyScalar(fittedDistance),
+        );
+      camera.lookAt(centre);
+    }
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    controls.update();
+    controls.saveState();
+    dirty = true;
+  }
+  function lighting() {
+    const shadowSize = software ? 512 : isLow() ? 1024 : 2048;
+    if (sun.shadow.mapSize.x !== shadowSize) {
+      sun.shadow.map?.dispose();
+      sun.shadow.map = null;
+      sun.shadow.mapSize.set(shadowSize, shadowSize);
+    }
+    sun.shadow.camera.left = sun.shadow.camera.bottom = -settings.size * 2;
+    sun.shadow.camera.right = sun.shadow.camera.top = settings.size * 2;
+    sun.shadow.camera.updateProjectionMatrix();
+    const angle = THREE.MathUtils.degToRad(settings.sunAngle);
+    sun.position.set(
+      Math.sin(angle) * 7,
+      settings.sunHeight * 9,
+      Math.cos(angle) * 7,
+    );
+    sun.intensity = settings.sunIntensity * 1.4;
+    sun.target.position.set(0, settings.size * 0.3, 0);
+    if (environment === "garden")
+      scene.background = new THREE.Color(
+        treePalettes[settings.palette].background,
+      );
+    sky.intensity = settings.skyIntensity;
+    controls.autoRotate = settings.autoRotate && !motion.matches;
+    controls.autoRotateSpeed = 0.35;
+  }
+  const changed = () => {
+      dirty = true;
+    },
+    start = () => {
+      userView = true;
+      interacting = true;
+      lastInteraction = performance.now();
+      dirty = true;
+    };
+  const end = () => {
+    interacting = false;
+    lastInteraction = performance.now();
+  };
+  controls.addEventListener("change", changed);
+  controls.addEventListener("start", start);
+  controls.addEventListener("end", end);
+  function configure(next: TreeSettings) {
+    if (JSON.stringify(next) === JSON.stringify(settings)) return;
+    const liveKeys = new Set([
+      "wind",
+      "windSpeed",
+      "windDirection",
+      "flutter",
+      "sunAngle",
+      "sunHeight",
+      "sunIntensity",
+      "skyIntensity",
+      "autoRotate",
+    ]);
+    const shape = (value: TreeSettings) =>
+      JSON.stringify(
+        Object.fromEntries(
+          Object.entries(value).filter(([key]) => !liveKeys.has(key)),
+        ),
+      );
+    if (shape(next) === shape(settings)) {
+      if (next.autoRotate && !settings.autoRotate) lastInteraction = -10000;
+      settings = next;
+      model.configureMotion(next);
+      garden.configure(next);
+      lighting();
+      dirty = true;
+      return;
+    }
+    const replacement = createTreeModel(
+      next,
+      next.quality === "low" || (next.quality === "auto" && software),
+    );
+    scene.remove(model.group);
+    model.dispose();
+    model = replacement;
+    settings = next;
+    scene.add(model.group);
+    model.setContributions(leaves, count, activeId, undefined, false);
+    model.step(performance.now(), 1, true);
+    garden.dispose();
+    garden = createTreeEnvironment(scene, settings, isLow());
+    host.dataset.grassBlades = String(garden.grassCount);
+    lighting();
+    fit();
+    first = false;
+    dirty = true;
+  }
+  function update(
+    nextLeaves: Leaf[],
+    nextActive?: string,
+    nextArrival?: string,
+    total = nextLeaves.length,
+  ) {
+    leaves = nextLeaves;
+    count = Math.max(total, nextLeaves.length);
+    activeId = nextActive;
+    arrivalId = nextArrival;
+    model.setContributions(leaves, count, activeId, arrivalId, !first);
+    first = false;
+    dirty = true;
+  }
+  const projected = new THREE.Vector3();
+  function render(now: number, force = false) {
+    if (disposed || (document.hidden && !force)) return;
+    const frameRate = software ? 24 : isLow() ? 30 : 60;
+    if (!force && now - lastFrame < 1000 / frameRate) return;
+    const delta = Math.min(0.1, (now - lastTick) / 1000 || 0.016);
+    lastTick = lastFrame = now;
+    controls.autoRotate =
+      settings.autoRotate &&
+      !motion.matches &&
+      !interacting &&
+      now - lastInteraction > 5000;
+    const gust = Math.max(0, 1 - (now - gustStarted) / 2400) ** 2 * 2;
+    const moved = controls.update(delta),
+      grew = model.step(now, delta, motion.matches, gust);
+    garden.step(now, motion.matches, count, gust);
+    if (!force && !dirty && !moved && !grew && !controls.autoRotate) return;
+    camera.updateMatrixWorld(true);
+    model.group.updateMatrixWorld(true);
+    const items: ProjectedLeaf[] = [];
+    for (const [id, position] of model.known) {
+      projected
+        .copy(position)
+        .applyMatrix4(model.group.matrixWorld)
+        .project(camera);
+      items.push({
+        id,
+        x: (projected.x * 0.5 + 0.5) * host.clientWidth,
+        y: (-projected.y * 0.5 + 0.5) * host.clientHeight,
+        visible: projected.z > -1 && projected.z < 1,
+      });
+    }
+    onProject(items, { ...model.metrics });
+    host.dataset.autoRotating = String(controls.autoRotate);
+    host.dataset.windStrength = String(motion.matches ? 0 : settings.wind);
+    host.dataset.windTime = (now / 1000).toFixed(3);
+    host.dataset.windOffset = model
+      .windOffset()
+      .toArray()
+      .map((v) => v.toFixed(4))
+      .join(",");
+    host.dataset.gust = gust.toFixed(3);
+    host.dataset.azimuth = controls.getAzimuthalAngle().toFixed(3);
+    host.dataset.distance = camera.position
+      .distanceTo(controls.target)
+      .toFixed(3);
+    renderer.render(scene, camera);
+    dirty = false;
+  }
+  lighting();
+  fit();
+  const observer = new ResizeObserver(() => {
+    fit();
+  });
+  observer.observe(host);
+  const lost = (event: Event) => {
+    event.preventDefault();
+    if (!disposed) onFailure();
+  };
+  renderer.domElement.addEventListener("webglcontextlost", lost);
+  renderer.setAnimationLoop((now) => render(now));
+  async function capture() {
+    render(performance.now(), true);
+    return new Promise<Blob>((resolve, reject) =>
+      renderer.domElement.toBlob(
+        (blob) =>
+          blob
+            ? resolve(blob)
+            : reject(new Error("Could not capture the tree.")),
+        "image/png",
+      ),
+    );
+  }
+  async function exportGlb() {
+    const { GLTFExporter } =
+      await import("three/addons/exporters/GLTFExporter.js");
+    render(performance.now(), true);
+    const copy = model.group.clone(true),
+      geometries: THREE.BufferGeometry[] = [],
+      materials: THREE.Material[] = [];
+    copy.traverse((object) => {
+      if (object instanceof THREE.Mesh) {
+        object.geometry = object.geometry.clone();
+        geometries.push(object.geometry);
+        const original = Array.isArray(object.material)
+          ? object.material[0]
+          : object.material;
+        const source = original as THREE.MeshToonMaterial;
+        object.material = new THREE.MeshStandardMaterial({
+          color: source.color,
+          map: source.map,
+          side: source.side,
+          alphaTest: source.alphaTest,
+          roughness: 1,
+          metalness: 0,
+        });
+        materials.push(object.material);
+      }
+    });
+    try {
+      return (await new GLTFExporter().parseAsync(copy, {
+        binary: true,
+        onlyVisible: true,
+        copyright:
+          "Living Tree of GMC; procedural geometry adapted from Mike Fernandez (MIT)",
+      })) as ArrayBuffer;
+    } finally {
+      geometries.forEach((item) => item.dispose());
+      materials.forEach((item) => item.dispose());
+    }
+  }
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    observer.disconnect();
+    renderer.setAnimationLoop(null);
+    renderer.domElement.removeEventListener("webglcontextlost", lost);
+    controls.removeEventListener("change", changed);
+    controls.removeEventListener("start", start);
+    controls.removeEventListener("end", end);
+    controls.dispose();
+    model.dispose();
+    garden.dispose();
+    sun.shadow.dispose();
+    renderer.dispose();
+    renderer.domElement.remove();
+  }
+  return {
+    update,
+    breeze() {
+      gustStarted = performance.now();
+      dirty = true;
+    },
+    configure,
+    capture,
+    exportGlb,
+    dispose,
+    orbit(horizontal, vertical = 0) {
+      userView = true;
+      lastInteraction = performance.now();
+      const spherical = new THREE.Spherical().setFromVector3(
+        camera.position.clone().sub(controls.target),
+      );
+      spherical.theta += horizontal;
+      spherical.phi = THREE.MathUtils.clamp(
+        spherical.phi + vertical,
+        controls.minPolarAngle,
+        controls.maxPolarAngle,
+      );
+      camera.position.setFromSpherical(spherical).add(controls.target);
+      controls.update();
+      dirty = true;
+      render(performance.now(), true);
+    },
+    resetView() {
+      userView = false;
+      interacting = false;
+      lastInteraction = -10000;
+      gustStarted = -10000;
+      fit();
+      render(performance.now(), true);
+    },
+    zoom(factor) {
+      userView = true;
+      lastInteraction = performance.now();
+      camera.position
+        .sub(controls.target)
+        .multiplyScalar(factor)
+        .clampLength(controls.minDistance, controls.maxDistance)
+        .add(controls.target);
+      controls.update();
+      dirty = true;
+      render(performance.now(), true);
+    },
+  };
 }

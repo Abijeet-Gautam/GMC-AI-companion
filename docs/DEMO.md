@@ -34,4 +34,12 @@
 
 In the staff console open **Tree & display**, choose a species/palette and inspect the preview. Save to update the reception screen. Rotate between portrait and landscape; the camera reframes and the QR stays clear. Choose low quality or illustration for an older browser.
 
+Choose **Open full-screen Tree Studio** or **Customize tree** to use the interactive workshop. Drag to orbit and pinch/scroll to zoom. Click **Bare**, **1**, **8**, **24** and **48** to preview growth without creating records. The live tree begins with bare branches; approved hopes create leaves and unfold more of the branches. Return to **Use live count** before demonstrating actual visitor submissions. Publish only the appearance settings with staff sign-in.
+
 Open **Visitor messages** to compare a hope with its public interpretation and moderation outcome. Search for a message, hide its leaf, and demonstrate deleting private words with the confirmation control. Refresh a phone mid-draft and after success to show recovery.
+
+## Living scene controls
+
+The reception display uses the upstream seasonal sky, foliage, wood and grass colors with a shadow-receiving floor. Its canvas fills the viewport behind the transparent story and participation overlays. Drag to explore, scroll or pinch to zoom, pause/resume the slow orbit, reset the view, or use the breeze button for a passing gust. Selecting a theme reads a real hope from that branch; selecting a leaf highlights its story. Motion handles the story transitions and controls. Reduced-motion preferences stop the ambient wind, petals and orbit.
+
+The home hero fits the initial viewport on normal desktop and portrait phone sizes; its rounded scene has no copy over the tree. On very short screens the content can flow vertically to stay readable.

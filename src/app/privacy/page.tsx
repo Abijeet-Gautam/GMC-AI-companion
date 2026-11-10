@@ -4,7 +4,9 @@ export default function PrivacyPage() {
     <>
       <SiteHeader />
       <main className="mx-auto max-w-2xl px-6 py-16">
-        <p className="eyebrow mb-5 text-[#8b7749]">Participation & privacy</p>
+        <p className="eyebrow mb-5 text-foreground/45">
+          Participation & privacy
+        </p>
         <h1 className="mb-8 text-5xl">
           A shared tree.
           <br />
@@ -28,7 +30,7 @@ export default function PrivacyPage() {
               What happens to your words
             </h2>
             <p>
-              When AI is enabled, your aspiration is sent to OpenAI for safety
+              When interpretation is enabled, your aspiration is sent to OpenAI for safety
               checks and interpretation, with response storage disabled in our
               generation requests. OpenAI processes that request under its own
               data policies. In offline mode we use local keyword matching and a

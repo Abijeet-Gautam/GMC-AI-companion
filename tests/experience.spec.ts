@@ -21,7 +21,7 @@ test("mobile visitor grows a leaf, kiosk receives it, keepsake downloads and cha
   await phone.getByRole("radio", { name: "Education & opportunity" }).check();
   await phone.getByRole("button", { name: "Continue" }).click();
   await phone
-    .getByLabel("What is your hope for GMC?")
+    .getByLabel("What is your hope for the city?")
     .fill("I hope students have wonderful schools to learn new skills.");
   await phone.getByRole("checkbox").check();
   await phone.getByRole("button", { name: "Grow my leaf" }).click();
@@ -101,9 +101,9 @@ test("display retains a cached tree offline and resynchronizes hidden leaves aft
     data: { action: "status", id: leaf.id, status: "approved" },
   });
   await expect(page.locator(".tree-leaf")).toHaveCount(initial + 1);
-  await page
-    .getByRole("button", { name: `Nature: ${leaf.leaf_message}` })
-    .click();
+  const restored = page.locator(`[data-leaf-id="${leaf.id}"]`);
+  await restored.focus();
+  await restored.press("Enter");
   await expect(
     page.getByRole("button", { name: "Close selected leaf" }),
   ).toBeVisible();
@@ -162,7 +162,9 @@ test("home and form fit small phones without horizontal scrolling", async ({
     ),
   ).toBeTruthy();
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByLabel("What is your hope for GMC?")).toBeVisible();
+  await expect(
+    page.getByLabel("What is your hope for the city?"),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

@@ -10,7 +10,8 @@ test("older TV APIs fall back to polling and an illustration without interruptin
     Object.defineProperty(AbortSignal, "timeout", { value: undefined });
     Object.defineProperty(window, "EventSource", { value: undefined });
     const original = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function (this:HTMLCanvasElement,
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
       kind: string,
       ...args: unknown[]
     ) {
@@ -167,9 +168,11 @@ test("visitor draft and retry key survive refresh and successful publication cle
   await page.goto("/join");
   await page.getByRole("button", { name: "Continue" }).click();
   const text = "I hope our gardens bring everyone together.";
-  await page.getByLabel("What is your hope for GMC?").fill(text);
+  await page.getByLabel("What is your hope for the city?").fill(text);
   await page.reload();
-  await expect(page.getByLabel("What is your hope for GMC?")).toHaveValue(text);
+  await expect(page.getByLabel("What is your hope for the city?")).toHaveValue(
+    text,
+  );
   await expect(
     page.getByText("Your unfinished hope is back.", { exact: false }),
   ).toBeVisible();
@@ -178,7 +181,7 @@ test("visitor draft and retry key survive refresh and successful publication cle
   await expect(
     page.getByRole("heading", { name: "Your leaf is growing." }),
   ).toBeVisible();
-  await expect(page.getByText(/Look for leaf #[A-F0-9]{6}/)).toBeVisible();
+  await expect(page.getByText(/Look for leaf #[a-f0-9]{6}/)).toBeVisible();
   expect(
     await page.evaluate(() => sessionStorage.getItem("gmc-hope-draft")),
   ).toBeNull();
@@ -248,7 +251,14 @@ test("3D tree renders without shader errors; staff can choose the illustration f
       "3d",
     );
     expect(errors).toEqual([]);
-    for (const species of ["pine", "willow", "cypress", "oak"]) {
+    for (const species of [
+      "pine",
+      "willow",
+      "cypress",
+      "bush",
+      "spooky",
+      "oak",
+    ]) {
       await request.put("/api/admin/tree", {
         data: { ...original, species, quality: "low" },
       });

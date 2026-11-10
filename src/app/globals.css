@@ -1,0 +1,230 @@
+@import "tailwindcss";
+:root {
+  --background: #f6f4ec;
+  --foreground: #163e32;
+  --primary: #214e3b;
+  --primary-foreground: #fffdf4;
+  --border: #d9ded3;
+  --muted: #eaece2;
+  --radius: 0.8rem;
+}
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --radius-md: var(--radius);
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+h1,
+h2,
+h3,
+.serif {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+}
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: wait;
+}
+:focus-visible {
+  outline: 2px solid #ad823b;
+  outline-offset: 5px;
+}
+::selection {
+  background: #d9b96e;
+  color: #143d2c;
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.forest {
+  --background: #0c2b23;
+  --foreground: #f7f4e8;
+  --primary: #dfc584;
+  --primary-foreground: #15392c;
+  --border: #385448;
+  --muted: #193e31;
+  background: var(--background);
+  color: var(--foreground);
+}
+.tree-stage {
+  position: relative;
+  isolation: isolate;
+}
+.tree-stage::before {
+  position: absolute;
+  content: "";
+  inset: 8% 6% 9%;
+  background: radial-gradient(ellipse, #accb951a, transparent 67%);
+  border-radius: 50%;
+  z-index: -1;
+}
+.tree-svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.ambient-canopy {
+  transform-origin: 50% 65%;
+  animation: breathe 10s ease-in-out infinite alternate;
+}
+.tree-leaf {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: leaf-in 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.active-leaf {
+  filter: drop-shadow(0 0 7px #f6e7a5);
+}
+.firefly {
+  animation: twinkle 5s ease-in-out infinite alternate;
+}
+.arrival {
+  animation: arrival 1s ease-out both;
+}
+.arrival-flight {
+  animation: flight-fade 1.3s ease-out forwards;
+  filter: drop-shadow(0 0 8px #e4d297);
+}
+@keyframes flight-fade {
+  0% {
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.soft-in {
+  animation: soft-in 0.5s ease-out both;
+}
+.orbit {
+  animation: spin 2.4s linear infinite;
+}
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23fff' opacity='.025' filter='url(%23n)' d='M0 0h160v160H0z'/%3E%3C/svg%3E");
+}
+.display-screen {
+  min-height: 100svh;
+}
+.display-tree {
+  width: min(100%, 780px);
+}
+@media (min-aspect-ratio: 5/4) and (min-width: 900px) {
+  .display-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    align-items: center;
+    gap: 50px;
+  }
+  .display-screen {
+    max-width: 1500px;
+    margin: auto;
+  }
+  .display-tree {
+    max-height: 66vh;
+  }
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .keepsake {
+    border: 1px solid #214e3b;
+    break-inside: avoid;
+  }
+}
+@keyframes breathe {
+  to {
+    transform: rotate(0.65deg) scale(1.012);
+  }
+}
+@keyframes leaf-in {
+  from {
+    opacity: 0;
+    transform: scale(0.1) translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes twinkle {
+  from {
+    opacity: 0.12;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+@keyframes arrival {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes soft-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrival-flight {
+    display: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

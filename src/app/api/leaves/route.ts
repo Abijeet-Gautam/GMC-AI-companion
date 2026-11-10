@@ -1,0 +1,47 @@
+import { listLeaves, snapshot } from "@/server/db";
+import { AppError, errorResponse, noStore } from "@/server/http";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export function GET(request: Request) {
+  try {
+    const params = new URL(request.url).searchParams;
+    if (!params.has("limit") && !params.has("cursor"))
+      return Response.json(snapshot(), { headers: noStore });
+    const limit = Math.min(120, Math.max(1, Number(params.get("limit") || 60)));
+    if (!Number.isInteger(limit)) throw new AppError("Invalid page size.");
+    let cursor: { created_at: string; id: string } | undefined;
+    if (params.has("cursor")) {
+      try {
+        cursor = JSON.parse(
+          Buffer.from(params.get("cursor")!, "base64url").toString(),
+        );
+      } catch {
+        throw new AppError("Invalid cursor.");
+      }
+      if (
+        !cursor ||
+        typeof cursor.id !== "string" ||
+        typeof cursor.created_at !== "string"
+      )
+        throw new AppError("Invalid cursor.");
+    }
+    const leaves = listLeaves(limit + 1, cursor),
+      more = leaves.length > limit;
+    if (more) leaves.pop();
+    const last = leaves.at(-1);
+    return Response.json(
+      {
+        leaves,
+        nextCursor:
+          more && last
+            ? Buffer.from(
+                JSON.stringify({ created_at: last.created_at, id: last.id }),
+              ).toString("base64url")
+            : null,
+      },
+      { headers: noStore },
+    );
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

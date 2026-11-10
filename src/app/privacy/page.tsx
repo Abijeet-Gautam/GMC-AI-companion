@@ -1,0 +1,83 @@
+import { SiteHeader, SiteFooter } from "@/components/brand";
+export default function PrivacyPage() {
+  return (
+    <>
+      <SiteHeader />
+      <main className="mx-auto max-w-2xl px-6 py-16">
+        <p className="eyebrow mb-5 text-[#8b7749]">Participation & privacy</p>
+        <h1 className="mb-8 text-5xl">
+          A shared tree.
+          <br />
+          Your choice to grow.
+        </h1>
+        <div className="space-y-7 text-sm leading-relaxed text-foreground/75">
+          <section>
+            <h2 className="mb-3 text-2xl text-foreground">
+              What becomes public
+            </h2>
+            <p>
+              Your approved leaf, its theme, timestamp and suggested chamber
+              appear on the tree and a public keepsake page. Anyone with that
+              page's link can view it. Your leaf may contribute to a collective
+              reflection. Participation is optional and anonymous; we do not ask
+              for a name, account or contact details.
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-2xl text-foreground">
+              What happens to your words
+            </h2>
+            <p>
+              When AI is enabled, your aspiration is sent to OpenAI for safety
+              checks and interpretation, with response storage disabled in our
+              generation requests. OpenAI processes that request under its own
+              data policies. In offline mode we use local keyword matching and a
+              curated sentence instead. We do not store your original aspiration
+              in the database or publish it verbatim.
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-2xl text-foreground">
+              What stays on the host laptop
+            </h2>
+            <p>
+              Approved leaves, anonymous request fingerprints for safe retries,
+              short-lived rate-limit counters, staff action records and
+              aggregate counts are stored in a local SQLite database. A signed
+              anonymous browser cookie helps limit repeat submissions. Staff
+              sign-in uses a separate cookie that expires after eight hours. The
+              display caches approved leaves on its browser for up to one day to
+              recover from outages.
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-2xl text-foreground">
+              Keep your hope anonymous
+            </h2>
+            <p>
+              Please leave out names, addresses, phone numbers, emails, links
+              and personal information. Submitted content is checked, but
+              automated moderation has limits. Ask reception staff to remove a
+              leaf if something should not be shared. Hidden leaves stop
+              appearing in public reads and connected displays; a disconnected
+              screen may show its last cached tree until it reconnects. A saved
+              image or shared copy cannot be recalled.
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-2xl text-foreground">
+              A hackathon experience
+            </h2>
+            <p>
+              These are participating visitors' hopes, not official plans,
+              commitments or representative survey results. Demo contributions
+              are labelled. The local operator controls database retention and
+              should clear demonstration data when the event ends.
+            </p>
+          </section>
+        </div>
+      </main>
+      <SiteFooter />
+    </>
+  );
+}

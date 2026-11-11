@@ -10,10 +10,12 @@ import {
 } from "@/server/http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export function GET(request: Request) {
+export async function GET(request: Request) {
   try {
     requireAdmin(request);
-    return Response.json({ settings: getTreeSettings() }, { headers: noStore });
+    return Response.json({ settings: await getTreeSettings() }, {
+      headers: noStore,
+    });
   } catch (error) {
     return errorResponse(error);
   }
@@ -27,7 +29,7 @@ export async function PUT(request: Request) {
       throw new AppError(
         "Check the tree settings: " + result.error.issues[0].message,
       );
-    saveTreeSettings(result.data);
+    await saveTreeSettings(result.data);
     return Response.json({ settings: result.data }, { headers: noStore });
   } catch (error) {
     return errorResponse(error);
@@ -43,8 +45,8 @@ export async function PATCH(request: Request) {
       .safeParse(await readJson(request));
     if (!headline.success)
       throw new AppError("Use a display title between 1 and 90 characters.");
-    const settings = { ...getTreeSettings(), headline: headline.data.headline };
-    saveTreeSettings(settings);
+    const settings = { ...(await getTreeSettings()), headline: headline.data.headline };
+    await saveTreeSettings(settings);
     return Response.json({ settings }, { headers: noStore });
   } catch (error) {
     return errorResponse(error);

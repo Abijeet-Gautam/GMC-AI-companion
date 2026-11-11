@@ -7,14 +7,22 @@ import {
   type Theme,
   type Reflection,
 } from "@/lib/catalog";
+import {
+  db,
+  sessionSecret,
+  recordMetric,
+  revision as dbRevision,
+  treeStats,
+  currentReflection,
+  saveReflection,
+  asyncRevision,
+} from "@/server/db";
 import { checkText, rejectUnsafe } from "./moderation";
 import {
-  recordMetric,
-  revision,
-  saveReflection,
-  currentReflection,
-  treeStats,
-} from "@/server/db";
+  createHash,
+  randomBytes,
+} from "node:crypto";
+
 export function aiMode() {
   return process.env.AI_MODE !== "offline" &&
     Boolean(process.env.OPENAI_API_KEY)
@@ -26,8 +34,6 @@ export function aiModel() {
 }
 function generationOptions() {
   const model = aiModel();
-  // This short, structured interaction does not need a reasoning budget.
-  // Older explicitly configured models retain their original request shape.
   return {
     model,
     ...(model === "gpt-6-luna" ? { reasoning: { effort: "none" } } : {}),
@@ -250,8 +256,6 @@ export async function createLeaf(aspiration: string, theme: Theme) {
       signal,
     );
     const decoded = JSON.parse(responseText(data));
-    // A refusal may deliberately omit usable leaf/reply text. Honor it before
-    // validating those text fields, so it cannot become a fallback approval.
     if (
       decoded &&
       typeof decoded === "object" &&
@@ -271,7 +275,7 @@ export async function createLeaf(aspiration: string, theme: Theme) {
     checkText(result.leaf_message);
     checkText(result.visitor_reply);
     await moderate(`${result.leaf_message}\n${result.visitor_reply}`, signal);
-    recordMetric("ai_success");
+    void recordMetric("ai_success");
     const chamber = result.chamber_id as keyof typeof chambers;
     return {
       category: result.category,
@@ -282,14 +286,13 @@ export async function createLeaf(aspiration: string, theme: Theme) {
       mode: "openai" as const,
     };
   } catch (error) {
-    // Rejections must NEVER turn into fallback approvals.
     if (
       error instanceof Error &&
       "code" in error &&
       error.code === "MODERATION_REJECTED"
     )
       throw error;
-    recordMetric("ai_fallback");
+    void recordMetric("ai_fallback");
     return offlineLeaf(aspiration, theme);
   }
 }
@@ -297,11 +300,9 @@ let reflectionFlight: Promise<Reflection | null> | null = null;
 export function refreshReflection(): Promise<Reflection | null> {
   if (reflectionFlight) return reflectionFlight;
   reflectionFlight = (async () => {
-    // A contribution may arrive while a provider call is running. Recompute
-    // from the current revision instead of leaving the cache empty.
     for (let attempt = 0; attempt < 3; attempt++) {
       const result = await makeReflection();
-      if (result || !treeStats().total) return result;
+      if (result || !(await treeStats()).total) return result;
     }
     return null;
   })().finally(() => {
@@ -310,9 +311,9 @@ export function refreshReflection(): Promise<Reflection | null> {
   return reflectionFlight;
 }
 async function makeReflection(): Promise<Reflection | null> {
-  if (currentReflection()) return currentReflection();
-  const source = revision(),
-    stats = treeStats();
+  if (await currentReflection()) return await currentReflection();
+  const source = await asyncRevision(),
+    stats = await treeStats();
   if (!stats.total) return null;
   const ranked = themes
     .filter((item) => stats.categories[item.id] > 0)
@@ -326,9 +327,7 @@ async function makeReflection(): Promise<Reflection | null> {
   let body = `${audience}, ${ranked
     .slice(0, 2)
     .map((item) => item.short.toLowerCase())
-    .join(
-      " and ",
-    )} ${ranked.length === 1 ? "is a recurring hope" : "are recurring hopes"} for the city's future.`;
+    .join(" and ")} ${ranked.length === 1 ? "is a recurring hope" : "are recurring hopes"} for the city's future.`;
   let mode: Reflection["mode"] = "offline";
   if (aiMode() === "openai") {
     const signal = AbortSignal.timeout(8000);
@@ -356,5 +355,6 @@ async function makeReflection(): Promise<Reflection | null> {
     }
   }
   const reflection = { body, mode, created_at: new Date().toISOString() };
-  return saveReflection(reflection, source) ? reflection : currentReflection();
+  await saveReflection(reflection, source);
+  return reflection;
 }

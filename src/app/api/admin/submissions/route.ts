@@ -10,7 +10,7 @@ import {
 } from "@/server/http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export function GET(request: Request) {
+export async function GET(request: Request) {
   try {
     requireAdmin(request);
     const params = new URL(request.url).searchParams;
@@ -26,7 +26,9 @@ export function GET(request: Request) {
         outcome: params.get("outcome") || "all",
       });
     if (!result.success) throw new AppError("Invalid history filter.");
-    return Response.json(listSubmissions(result.data), { headers: noStore });
+    return Response.json(await listSubmissions(result.data), {
+      headers: noStore,
+    });
   } catch (error) {
     return errorResponse(error);
   }
@@ -39,7 +41,7 @@ export async function DELETE(request: Request) {
       .object({ id: z.string().uuid() })
       .safeParse(await readJson(request));
     if (!data.success) throw new AppError("Invalid message.");
-    if (!deleteSubmission(data.data.id))
+    if (!(await deleteSubmission(data.data.id)))
       throw new AppError("Message not found.", 404);
     return Response.json({ ok: true }, { headers: noStore });
   } catch (error) {

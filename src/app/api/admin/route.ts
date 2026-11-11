@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  db,
   adminLeaves,
   treeStats,
   setLeafStatus,
@@ -18,26 +17,15 @@ import {
 } from "@/server/http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export function GET(request: Request) {
+export async function GET(request: Request) {
   try {
     requireAdmin(request);
     return Response.json(
       {
-        leaves: adminLeaves(),
-        stats: treeStats(),
+        leaves: await adminLeaves(),
+        stats: await treeStats(),
         ai: aiMode(),
         model: aiModel(),
-        metrics: Object.fromEntries(
-          db
-            .prepare("SELECT key,count FROM metrics")
-            .all()
-            .map((row) => [row.key, Number(row.count)]),
-        ),
-        audit: db
-          .prepare(
-            "SELECT action,leaf_id,created_at FROM audit_events ORDER BY id DESC LIMIT 30",
-          )
-          .all(),
       },
       { headers: noStore },
     );
@@ -63,11 +51,11 @@ export async function POST(request: Request) {
     if (!result.success) throw new AppError("Invalid staff action.");
     const input = result.data;
     if (input.action === "status") {
-      if (!setLeafStatus(input.id, input.status))
+      if (!(await setLeafStatus(input.id, input.status)))
         throw new AppError("Leaf not found or already updated.", 404);
     }
-    if (input.action === "seed") seedDemo();
-    if (input.action === "clear_demo") clearDemo();
+    if (input.action === "seed") await seedDemo();
+    if (input.action === "clear_demo") await clearDemo();
     await refreshReflection();
     return Response.json({ ok: true }, { headers: noStore });
   } catch (error) {

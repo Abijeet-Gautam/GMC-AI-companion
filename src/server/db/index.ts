@@ -1,13 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
-import {
-  randomBytes,
-  randomUUID,
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-} from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { randomBytes, randomUUID, createHash, createCipheriv, createDecipheriv } from "node:crypto";
+import { Pool, PoolClient, type QueryResult } from "pg";
 import {
   themes,
   type Leaf,
@@ -21,169 +13,243 @@ import {
   defaultTreeSettings,
   type TreeSettings,
 } from "@/lib/tree-settings";
-const path = resolve(
-  /* turbopackIgnore: true */ process.env.DATABASE_PATH ||
-    "data/living-tree.sqlite",
-);
-mkdirSync(dirname(path), { recursive: true });
-const globalDb = globalThis as unknown as { livingTreeDb?: DatabaseSync };
-export const db = globalDb.livingTreeDb ?? new DatabaseSync(path);
-globalDb.livingTreeDb = db;
-db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
-CREATE TABLE IF NOT EXISTS approved_leaves (
- id TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE,
- category TEXT NOT NULL CHECK(category IN ('nature','innovation','education','community','wellbeing','culture')),
- leaf_message TEXT NOT NULL CHECK(length(leaf_message) BETWEEN 1 AND 100),
- chamber_id INTEGER NOT NULL CHECK(chamber_id BETWEEN 1 AND 4),
- chamber_reason TEXT NOT NULL, created_at TEXT NOT NULL,
- status TEXT NOT NULL DEFAULT 'approved' CHECK(status IN ('approved','hidden')));
-CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS audit_events (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, leaf_id TEXT, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS reflection_cache (id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL, mode TEXT NOT NULL, created_at TEXT NOT NULL, source_revision INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS metrics (key TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);`);
-db.exec(`CREATE TABLE IF NOT EXISTS visitor_submissions (
- id TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE, leaf_id TEXT,
- private_message TEXT NOT NULL, selected_theme TEXT NOT NULL,
- outcome TEXT NOT NULL CHECK(outcome IN ('approved','rejected')),
- reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS visitor_submissions_order ON visitor_submissions(created_at DESC,id DESC);`);
-for (const [column, definition] of [
-  ["owner_key", "TEXT NOT NULL DEFAULT ''"],
-  ["visit_kind", "TEXT NOT NULL DEFAULT 'first'"],
-]) {
-  if (
-    !db
-      .prepare("PRAGMA table_info(visitor_submissions)")
-      .all()
-      .some((row) => row.name === column)
-  )
-    db.exec(
-      `ALTER TABLE visitor_submissions ADD COLUMN ${column} ${definition}`,
+
+let dbInitError: Error | null = null;
+let pool: Pool | null = null;
+let sessionSecretValue = "";
+
+try {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 5,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+
+  const initSql = `
+    create extension if not exists pgcrypto;
+
+    create table if not exists approved_leaves (
+      id text primary key,
+      idempotency_key text not null unique,
+      category text not null check (category in ('nature','innovation','education','community','wellbeing','culture')),
+      chamber_id integer not null check (chamber_id between 1 and 4),
+      chamber_reason text not null,
+      created_at timestamptz not null default now(),
+      status text not null default 'approved' check (status in ('approved','hidden')),
+      mode text not null default 'offline',
+      is_demo integer not null default 0,
+      payload_hash text not null default ''
     );
-}
-db.exec(`CREATE TABLE IF NOT EXISTS visitor_profiles (
- id TEXT PRIMARY KEY, cid_hash TEXT NOT NULL UNIQUE, pin_salt TEXT NOT NULL, pin_hash TEXT NOT NULL, created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS visitor_profile_leaves (
- leaf_id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, linked_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS visitor_profile_leaves_profile ON visitor_profile_leaves(profile_id,linked_at DESC);
-CREATE TABLE IF NOT EXISTS visitor_profile_sessions (
- token_hash TEXT PRIMARY KEY, profile_id TEXT NOT NULL, expires INTEGER NOT NULL
-);`);
-if (
-  !db
-    .prepare("PRAGMA table_info(visitor_submissions)")
-    .all()
-    .some((row) => row.name === "private_reply")
-)
-  db.exec(
-    "ALTER TABLE visitor_submissions ADD COLUMN private_reply TEXT NOT NULL DEFAULT ''",
+
+    create index if not exists leaves_public_order on approved_leaves(status, created_at desc, id desc);
+
+    create table if not exists app_meta (
+      key text primary key,
+      value text not null
+    );
+
+    create table if not exists rate_limits (
+      key text primary key,
+      count integer not null,
+      expires bigint not null
+    );
+
+    create table if not exists audit_events (
+      id serial primary key,
+      action text not null,
+      leaf_id text,
+      created_at timestamptz not null default now()
+    );
+
+    create table if not exists reflection_cache (
+      id integer primary key check (id = 1),
+      body text not null,
+      mode text not null,
+      created_at timestamptz not null default now(),
+      source_revision integer not null
+    );
+
+    create table if not exists metrics (
+      key text primary key,
+      count integer not null default 0
+    );
+
+    create table if not exists visitor_submissions (
+      id text primary key,
+      idempotency_key text not null unique,
+      leaf_id text,
+      private_message text not null,
+      selected_theme text not null,
+      outcome text not null check (outcome in ('approved','rejected')),
+      reason text not null default '',
+      created_at timestamptz not null default now(),
+      private_reply text not null default '',
+      owner_key text not null default '',
+      visit_kind text not null default 'first'
+    );
+
+    create index if not exists visitor_submissions_order on visitor_submissions(created_at desc, id desc);
+
+    create table if not exists visitor_profiles (
+      id text primary key,
+      cid_hash text not null unique,
+      pin_salt text not null,
+      pin_hash text not null,
+      created_at timestamptz not null default now()
+    );
+
+    create table if not exists visitor_profile_leaves (
+      leaf_id text primary key,
+      profile_id text not null,
+      linked_at timestamptz not null default now()
+    );
+
+    create index if not exists visitor_profile_leaves_profile on visitor_profile_leaves(profile_id, linked_at desc);
+
+    create table if not exists visitor_profile_sessions (
+      token_hash text primary key,
+      profile_id text not null,
+      expires bigint not null
+    );
+
+    insert into app_meta (key, value) values ('revision', '0') on conflict (key) do nothing;
+    insert into app_meta (key, value) values ('session_secret', $1) on conflict (key) do nothing;
+  `;
+  pool.query(initSql, [randomBytes(32).toString("hex")]);
+  sessionSecretValue = String(
+    (
+      pool.query(
+        "select value from app_meta where key='session_secret'",
+      ) as unknown as { rows: [{ value: string }] }
+    ).rows[0].value,
   );
-const columns = db
-  .prepare("PRAGMA table_info(approved_leaves)")
-  .all()
-  .map((row) => row.name);
-for (const [column, definition] of [
-  ["mode", "TEXT NOT NULL DEFAULT 'offline'"],
-  ["is_demo", "INTEGER NOT NULL DEFAULT 0"],
-  ["payload_hash", "TEXT NOT NULL DEFAULT ''"],
-]) {
-  if (!columns.includes(column))
-    db.exec(`ALTER TABLE approved_leaves ADD COLUMN ${column} ${definition}`);
+} catch (error) {
+  dbInitError = error instanceof Error ? error : new Error(String(error));
+  console.error("Database initialization failed:", dbInitError.message);
 }
-db.exec(
-  "CREATE INDEX IF NOT EXISTS leaves_public_order ON approved_leaves(status,created_at DESC,id DESC)",
-);
-db.prepare(
-  "INSERT OR IGNORE INTO app_meta(key,value) VALUES('revision','0')",
-).run();
-db.prepare(
-  "INSERT OR IGNORE INTO app_meta(key,value) VALUES('session_secret',?)",
-).run(randomBytes(32).toString("hex"));
-export const sessionSecret = String(
-  db.prepare("SELECT value FROM app_meta WHERE key='session_secret'").get()!
-    .value,
-);
+
+export const db = pool as Pool;
+export const sessionSecret = sessionSecretValue;
 export const publicFields =
   "id, category, leaf_message, chamber_id, chamber_reason, created_at, mode, is_demo";
-function asLeaf(row: Record<string, unknown>): Leaf {
+
+function requireDb(): Pool {
+  if (dbInitError) throw dbInitError;
+  if (!pool) throw new Error("Database is not initialized.");
+  return pool;
+}
+
+function rowToLeaf(row: Record<string, unknown>): Leaf {
   return { ...row, is_demo: Boolean(row.is_demo) } as Leaf;
 }
-export function revision() {
-  return Number(
-    db.prepare("SELECT value FROM app_meta WHERE key='revision'").get()!.value,
-  );
+
+async function q<T = unknown>(
+  text: string,
+  params?: unknown[],
+): Promise<T[]> {
+  const { rows } = await requireDb().query(text, params);
+  return rows as unknown as T[];
 }
-export function changed() {
-  db.prepare(
-    "UPDATE app_meta SET value=CAST(value AS INTEGER)+1 WHERE key='revision'",
-  ).run();
-  db.exec("DELETE FROM reflection_cache");
-}
-export function recordMetric(key: string) {
-  db.prepare(
-    "INSERT INTO metrics(key,count) VALUES(?,1) ON CONFLICT(key) DO UPDATE SET count=count+1",
-  ).run(key);
-}
-export function transaction<T>(operation: () => T): T {
-  db.exec("BEGIN IMMEDIATE");
+
+export async function transaction<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await requireDb().connect();
   try {
-    const result = operation();
-    db.exec("COMMIT");
+    await client.query("BEGIN");
+    const result = await operation(client);
+    await client.query("COMMIT");
     return result;
   } catch (error) {
-    db.exec("ROLLBACK");
+    await client.query("ROLLBACK");
     throw error;
+  } finally {
+    client.release();
   }
 }
+
+// Module-level cache for synchronously-accessed values
+let revisionCache = 0;
+let revisionCacheTime = 0;
+const REVISION_CACHE_TTL_MS = 1000;
+
+export async function asyncRevision(): Promise<number> {
+  const now = Date.now();
+  if (now - revisionCacheTime < REVISION_CACHE_TTL_MS) return revisionCache;
+  const rows = await q<{ value: string }>(
+    "select value from app_meta where key='revision'",
+  );
+  revisionCache = Number(rows[0]?.value ?? 0);
+  revisionCacheTime = now;
+  return revisionCache;
+}
+
+export function revision(): number {
+  // Synchronous accessor: returns cached value, may be stale by up to TTL.
+  // Callers that need fresh data should use asyncRevision().
+  return revisionCache;
+}
+
+export function changed() {
+  revisionCacheTime = 0;
+}
+
+export function recordMetric(key: string) {
+  void q(
+    "insert into metrics(key,count) values($1,1) on conflict(key) do update set count=metrics.count+1",
+    [key],
+  );
+}
+
 export function listLeaves(
   limit = 120,
   cursor?: { created_at: string; id: string },
-): Leaf[] {
+): Promise<Leaf[]> {
   const filter = cursor
-    ? " AND (created_at < ? OR (created_at = ? AND id < ?))"
+    ? " and (created_at < $1 or (created_at = $1 and id < $2))"
     : "";
   const params = cursor
     ? [cursor.created_at, cursor.created_at, cursor.id, limit]
     : [limit];
-  return db
-    .prepare(
-      `SELECT ${publicFields} FROM approved_leaves WHERE status='approved'${filter} ORDER BY created_at DESC,id DESC LIMIT ?`,
-    )
-    .all(...params)
-    .map(asLeaf);
+  return q<Leaf>(
+    `select ${publicFields} from approved_leaves where status='approved'${filter} order by created_at desc, id desc limit $${params.length}`,
+    params,
+  ).then((rows) => rows.map(rowToLeaf));
 }
-export function getLeaf(id: string): Leaf | undefined {
-  const row = db
-    .prepare(
-      `SELECT ${publicFields} FROM approved_leaves WHERE id=? AND status='approved'`,
-    )
-    .get(id);
-  return row ? asLeaf(row) : undefined;
+
+export function getLeaf(id: string): Promise<Leaf | undefined> {
+  return q<Leaf>(
+    `select ${publicFields} from approved_leaves where id=$1 and status='approved'`,
+    [id],
+  ).then((rows) => (rows[0] ? rowToLeaf(rows[0]) : undefined));
 }
+
 export function getByKey(key: string) {
-  const row = db
-    .prepare(
-      `SELECT ${publicFields},payload_hash,status FROM approved_leaves WHERE idempotency_key=?`,
-    )
-    .get(key);
-  return row
-    ? {
-        leaf: asLeaf(
-          Object.fromEntries(
-            Object.entries(row).filter(
-              ([key]) => key !== "payload_hash" && key !== "status",
-            ),
-          ),
-        ),
-        hash: String(row.payload_hash),
-        status: String(row.status),
-      }
-    : undefined;
+  return q<{
+    id: string;
+    category: string;
+    leaf_message: string;
+    chamber_id: number;
+    chamber_reason: string;
+    created_at: string;
+    mode: string;
+    is_demo: number;
+    payload_hash: string;
+    status: string;
+  }>(
+    `select ${publicFields}, payload_hash, status from approved_leaves where idempotency_key=$1`,
+    [key],
+  ).then((rows) => {
+    const row = rows[0];
+    if (!row) return undefined;
+    const { payload_hash, status, ...leaf } = row;
+    return {
+      leaf: rowToLeaf(leaf as Record<string, unknown>),
+      hash: String(payload_hash),
+      status: String(status),
+    };
+  });
 }
+
 export function insertLeaf(
   key: string,
   hash: string,
@@ -197,12 +263,12 @@ export function insertLeaf(
     visitor_type?: "first" | "returning";
   },
 ) {
-  return transaction(() => {
-    const result = db
-      .prepare(
-        `INSERT OR IGNORE INTO approved_leaves(id,idempotency_key,category,leaf_message,chamber_id,chamber_reason,created_at,mode,is_demo,payload_hash) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-      )
-      .run(
+  return transaction(async (client) => {
+    const result = await client.query(
+      `insert into approved_leaves(id,idempotency_key,category,leaf_message,chamber_id,chamber_reason,created_at,mode,is_demo,payload_hash)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       on conflict(idempotency_key) do nothing`,
+      [
         leaf.id,
         key,
         leaf.category,
@@ -213,119 +279,137 @@ export function insertLeaf(
         leaf.mode,
         Number(leaf.is_demo),
         hash,
-      );
-    if (result.changes) {
+      ],
+    );
+    if (result.rowCount && result.rowCount > 0) {
       if (original)
         recordSubmission(original, "approved", leaf.id, "", original.reply);
       changed();
       recordMetric("accepted");
     }
-    return getByKey(key)!;
+    return getByKey(key);
   });
 }
-export function treeStats(): TreeStats {
-  const counts = db
-    .prepare(
-      "SELECT category,count(*) AS count FROM approved_leaves WHERE status='approved' GROUP BY category",
-    )
-    .all();
-  const categories = Object.fromEntries(
-    themes.map((theme) => [
-      theme.id,
-      Number(counts.find((row) => row.category === theme.id)?.count || 0),
-    ]),
-  ) as Record<Theme, number>;
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Thimphu",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-  const row = db
-    .prepare(
-      "SELECT count(*) AS total,coalesce(sum(is_demo),0) AS demo,coalesce(sum(substr(datetime(created_at,'+6 hours'),1,10)=?),0) AS today FROM approved_leaves WHERE status='approved'",
-    )
-    .get(today)!;
-  return {
-    total: Number(row.total),
-    demo: Number(row.demo),
-    today: Number(row.today),
-    categories,
-  };
+
+export function treeStats(): Promise<TreeStats> {
+  return q<{ category: string; count: string }>(
+    "select category, count(*) as count from approved_leaves where status='approved' group by category",
+  ).then((rows) => {
+    const counts = Object.fromEntries(
+      rows.map((row) => [row.category, Number(row.count)]),
+    );
+    const categories = Object.fromEntries(
+      themes.map((theme) => [theme.id, Number(counts[theme.id] || 0)]),
+    ) as Record<Theme, number>;
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Thimphu",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    return q<{ total: string; demo: string; today: string }>(
+      `select count(*) as total,
+             coalesce(sum(is_demo::int),0) as demo,
+             coalesce(sum(case when date(created_at at time zone 'Asia/Thimphu' = $1) then 1 else 0 end),0) as today
+       from approved_leaves where status='approved'`,
+      [today],
+    ).then((r) => ({
+      total: Number(r[0].total),
+      demo: Number(r[0].demo),
+      today: Number(r[0].today),
+      categories,
+    }));
+  });
 }
-export function currentReflection(): Reflection | null {
-  const row = db
-    .prepare("SELECT body,mode,created_at FROM reflection_cache WHERE id=1")
-    .get();
-  return row ? (row as Reflection) : null;
+
+export function currentReflection(): Promise<Reflection | null> {
+  return q<Reflection>(
+    "select body, mode, created_at from reflection_cache where id=1",
+  ).then((rows) => (rows[0] ? rows[0] : null));
 }
+
 export function saveReflection(reflection: Reflection, sourceRevision: number) {
-  if (revision() !== sourceRevision) return false;
-  db.prepare(
-    "INSERT OR REPLACE INTO reflection_cache(id,body,mode,created_at,source_revision) VALUES(1,?,?,?,?)",
-  ).run(
-    reflection.body,
-    reflection.mode,
-    reflection.created_at,
-    sourceRevision,
-  );
-  db.prepare(
-    "UPDATE app_meta SET value=CAST(value AS INTEGER)+1 WHERE key='revision'",
-  ).run();
-  return true;
+  return transaction(async (client) => {
+    const rev = await asyncRevision();
+    if (rev !== sourceRevision) return false;
+    await client.query(
+      "insert into reflection_cache(id,body,mode,created_at,source_revision) values(1,$1,$2,$3,$4) on conflict(id) do update set body=excluded.body, mode=excluded.mode, created_at=excluded.created_at, source_revision=excluded.source_revision",
+      [reflection.body, reflection.mode, reflection.created_at, sourceRevision],
+    );
+    await client.query(
+      "update app_meta set value=cast(value as integer)+1 where key='revision'",
+    );
+    changed();
+    return true;
+  });
 }
-export function snapshot(): TreeSnapshot {
-  const stats = treeStats();
+
+export async function snapshot(): Promise<TreeSnapshot> {
+  const [stats, leaves, reflection, revision, settings] = await Promise.all([
+    treeStats(),
+    listLeaves(),
+    currentReflection(),
+    asyncRevision(),
+    getTreeSettings(),
+  ]);
   return {
-    leaves: listLeaves(),
+    leaves,
     total: stats.total,
     stats,
-    reflection: currentReflection(),
-    revision: revision(),
+    reflection,
+    revision,
     serverTime: new Date().toISOString(),
-    settings: getTreeSettings(),
+    settings,
   };
 }
 
-export function getTreeSettings(): TreeSettings {
-  const row = db
-    .prepare("SELECT value FROM app_meta WHERE key='tree_settings'")
-    .get();
-  if (!row) return defaultTreeSettings;
-  try {
-    return treeSettingsSchema.parse(JSON.parse(String(row.value)));
-  } catch {
-    return defaultTreeSettings;
-  }
-}
-export function saveTreeSettings(settings: TreeSettings) {
-  return transaction(() => {
-    db.prepare(
-      "INSERT INTO app_meta(key,value) VALUES('tree_settings',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-    ).run(JSON.stringify(settings));
-    db.prepare(
-      "UPDATE app_meta SET value=CAST(value AS INTEGER)+1 WHERE key='revision'",
-    ).run();
-    db.prepare(
-      "INSERT INTO audit_events(action,created_at) VALUES('tree_settings',?)",
-    ).run(new Date().toISOString());
+export function getTreeSettings(): Promise<TreeSettings> {
+  return q<{ value: string }>(
+    "select value from app_meta where key='tree_settings'",
+  ).then((rows) => {
+    if (!rows[0]) return defaultTreeSettings;
+    try {
+      return treeSettingsSchema.parse(JSON.parse(String(rows[0].value)));
+    } catch {
+      return defaultTreeSettings;
+    }
   });
 }
+
+export function saveTreeSettings(settings: TreeSettings) {
+  return transaction(async (client) => {
+    await client.query(
+      "insert into app_meta(key,value) values('tree_settings',$1) on conflict(key) do update set value=excluded.value",
+      [JSON.stringify(settings)],
+    );
+    await client.query(
+      "update app_meta set value=cast(value as integer)+1 where key='revision'",
+    );
+    changed();
+    await client.query(
+      "insert into audit_events(action,created_at) values('tree_settings',$1)",
+      [new Date().toISOString()],
+    );
+  });
+}
+
 const legacyPrivateKey = createHash("sha256")
-  .update(`visitor-messages:${sessionSecret}`)
+  .update(`visitor-messages:${sessionSecretValue}`)
   .digest();
 const privateKey = process.env.MESSAGE_ENCRYPTION_KEY
   ? createHash("sha256").update(process.env.MESSAGE_ENCRYPTION_KEY).digest()
   : legacyPrivateKey;
+
 function redactPrivate(text: string) {
   return text
     .replace(/[\w.+-]+\s*@\s*[\w.-]+\.[a-z]{2,}/gi, "[email removed]")
     .replace(/(?:\+?\d[\s().-]*){7,}/g, "[number removed]")
     .replace(/https?:\/\/\S+|www\.\S+/gi, "[link removed]");
 }
+
 function encryptMessage(text: string) {
-  const iv = randomBytes(12),
-    cipher = createCipheriv("aes-256-gcm", privateKey, iv);
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", privateKey, iv);
   const encrypted = Buffer.concat([
     cipher.update(redactPrivate(text), "utf8"),
     cipher.final(),
@@ -334,6 +418,7 @@ function encryptMessage(text: string) {
     .map((value) => value.toString("base64url"))
     .join(".");
 }
+
 export function decryptMessage(value: string) {
   for (const key of [privateKey, legacyPrivateKey])
     try {
@@ -350,14 +435,14 @@ export function decryptMessage(value: string) {
     }
   return "[Message unavailable]";
 }
+
 export function rejectedSubmission(key: string) {
-  const row = db
-    .prepare(
-      "SELECT reason FROM visitor_submissions WHERE idempotency_key=? AND outcome='rejected'",
-    )
-    .get(key);
-  return row ? String(row.reason) : null;
+  return q<{ reason: string }>(
+    "select reason from visitor_submissions where idempotency_key=$1 and outcome='rejected'",
+    [key],
+  ).then((rows) => (rows[0] ? String(rows[0].reason) : null));
 }
+
 export function recordSubmission(
   input: {
     idempotencyKey: string;
@@ -371,32 +456,37 @@ export function recordSubmission(
   reason = "",
   reply = "",
 ) {
-  db.prepare(
-    "INSERT OR IGNORE INTO visitor_submissions(id,idempotency_key,leaf_id,private_message,selected_theme,outcome,reason,created_at,private_reply,owner_key,visit_kind) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-  ).run(
-    randomUUID(),
-    input.idempotencyKey,
-    leafId || null,
-    encryptMessage(input.aspiration),
-    input.theme,
-    outcome,
-    reason,
-    new Date().toISOString(),
-    reply ? encryptMessage(reply) : "",
-    input.owner_key || "",
-    input.visitor_type || "first",
+  return q(
+    `insert into visitor_submissions(id,idempotency_key,leaf_id,private_message,selected_theme,outcome,reason,created_at,private_reply,owner_key,visit_kind)
+     values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+     on conflict(idempotency_key) do nothing`,
+    [
+      randomUUID(),
+      input.idempotencyKey,
+      leafId || null,
+      encryptMessage(input.aspiration),
+      input.theme,
+      outcome,
+      reason,
+      new Date().toISOString(),
+      reply ? encryptMessage(reply) : "",
+      input.owner_key || "",
+      input.visitor_type || "first",
+    ],
   );
 }
-export function replyByKey(key: string): string | null {
-  const row = db
-    .prepare(
-      "SELECT private_reply FROM visitor_submissions WHERE idempotency_key=? AND outcome='approved'",
-    )
-    .get(key);
-  if (!row?.private_reply) return null;
-  const reply = decryptMessage(String(row.private_reply));
-  return reply === "[Message unavailable]" ? null : reply;
+
+export function replyByKey(key: string) {
+  return q<{ private_reply: string }>(
+    "select private_reply from visitor_submissions where idempotency_key=$1 and outcome='approved'",
+    [key],
+  ).then((rows) => {
+    if (!rows[0]?.private_reply) return null;
+    const reply = decryptMessage(String(rows[0].private_reply));
+    return reply === "[Message unavailable]" ? null : reply;
+  });
 }
+
 export type PrivateSubmission = {
   id: string;
   leaf_id: string | null;
@@ -409,146 +499,169 @@ export type PrivateSubmission = {
   leaf_message: string | null;
   leaf_status: string | null;
 };
+
 export function listSubmissions({
   page = 1,
-  query = "",
+  query: queryText = "",
   outcome = "all",
 }: { page?: number; query?: string; outcome?: string } = {}) {
-  const rows = db
-    .prepare(
-      `SELECT s.id,s.leaf_id,s.private_message,s.selected_theme,CASE WHEN s.owner_key='' THEN '' ELSE s.visit_kind END AS visit_kind,s.outcome,s.reason,s.created_at,l.leaf_message,l.status AS leaf_status FROM visitor_submissions s LEFT JOIN approved_leaves l ON l.id=s.leaf_id ORDER BY s.created_at DESC,s.id DESC`,
-    )
-    .all();
-  const all = rows
-    .map(
-      (row) =>
-        ({
-          ...row,
-          message: decryptMessage(String(row.private_message)),
-        }) as Record<string, unknown> & { message: string },
-    )
-    .filter((row) => {
-      const outcomeMatches = outcome === "all" || row.outcome === outcome;
-      const searchable =
-        `${row.message} ${row.leaf_message || ""} ${row.selected_theme}`.toLowerCase();
-      return outcomeMatches && searchable.includes(query.toLowerCase());
-    })
-    .map((row) => {
-      const { private_message: _, ...safe } = row;
-      return safe as PrivateSubmission;
-    });
-  return {
-    submissions: all.slice((page - 1) * 25, page * 25),
-    total: all.length,
-    page,
-    pages: Math.max(1, Math.ceil(all.length / 25)),
-  };
+  return q<Record<string, unknown>>(
+    `select s.id, s.leaf_id, s.private_message, s.selected_theme,
+            case when s.owner_key='' then '' else s.visit_kind end as visit_kind,
+            s.outcome, s.reason, s.created_at,
+            l.leaf_message, l.status as leaf_status
+     from visitor_submissions s
+     left join approved_leaves l on l.id = s.leaf_id
+     order by s.created_at desc, s.id desc`,
+  ).then((rows) => {
+    const all = rows
+      .map((row) => ({
+        ...row,
+        message: decryptMessage(String(row.private_message)),
+      } as Record<string, unknown> & { message: string }))
+      .filter((row) => {
+        const outcomeMatches = outcome === "all" || row.outcome === outcome;
+        const searchable = `${row.message} ${row.leaf_message || ""} ${row.selected_theme}`.toLowerCase();
+        return outcomeMatches && searchable.includes(queryText.toLowerCase());
+      })
+      .map((row) => {
+        const { private_message: _, ...safe } = row;
+        return safe as PrivateSubmission;
+      });
+    return {
+      submissions: all.slice((page - 1) * 25, page * 25),
+      total: all.length,
+      page,
+      pages: Math.max(1, Math.ceil(all.length / 25)),
+    };
+  });
 }
+
 export function deleteSubmission(id: string) {
-  return transaction(() => {
-    const row = db
-      .prepare("SELECT leaf_id FROM visitor_submissions WHERE id=?")
-      .get(id);
-    if (!row) return false;
-    // Keep the idempotency tombstone so a retry cannot republish removed content.
-    if (row.leaf_id)
-      db.prepare("UPDATE approved_leaves SET status='hidden' WHERE id=?").run(
-        row.leaf_id,
+  return transaction(async (client) => {
+    const row = await client.query(
+      "select leaf_id from visitor_submissions where id=$1",
+      [id],
+    );
+    if (!row.rows[0]) return false;
+    if (row.rows[0].leaf_id) {
+      await client.query(
+        "update approved_leaves set status='hidden' where id=$1",
+        [row.rows[0].leaf_id],
       );
-    db.prepare("DELETE FROM visitor_submissions WHERE id=?").run(id);
+    }
+    await client.query("delete from visitor_submissions where id=$1", [id]);
     changed();
-    db.prepare(
-      "INSERT INTO audit_events(action,leaf_id,created_at) VALUES('delete_private_message',?,?)",
-    ).run(row.leaf_id || null, new Date().toISOString());
+    await client.query(
+      "insert into audit_events(action,leaf_id,created_at) values('delete_private_message',$1,$2)",
+      [row.rows[0].leaf_id || null, new Date().toISOString()],
+    );
     return true;
   });
 }
+
 export function consumeRate(key: string, maximum: number, windowMs: number) {
   const now = Date.now();
-  db.prepare("DELETE FROM rate_limits WHERE expires <= ?").run(now);
-  db.prepare(
-    "INSERT INTO rate_limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1",
-  ).run(key, now + windowMs);
-  const row = db
-    .prepare("SELECT count,expires FROM rate_limits WHERE key=?")
-    .get(key)!;
-  return {
-    allowed: Number(row.count) <= maximum,
-    retryAfter: Math.max(1, Math.ceil((Number(row.expires) - now) / 1000)),
-  };
-}
-export function adminLeaves() {
-  return db
-    .prepare(
-      `SELECT ${publicFields},status FROM approved_leaves ORDER BY created_at DESC,id DESC LIMIT 500`,
-    )
-    .all()
-    .map((row) => ({ ...asLeaf(row), status: String(row.status) }));
-}
-export function setLeafStatus(id: string, status: "approved" | "hidden") {
-  return transaction(() => {
-    const result = db
-      .prepare("UPDATE approved_leaves SET status=? WHERE id=? AND status<>?")
-      .run(status, id, status);
-    if (result.changes) {
-      changed();
-      db.prepare(
-        "INSERT INTO audit_events(action,leaf_id,created_at) VALUES(?,?,?)",
-      ).run(
-        status === "hidden" ? "hide" : "restore",
-        id,
-        new Date().toISOString(),
-      );
-    }
-    return Boolean(result.changes);
+  return transaction(async (client) => {
+    await client.query("delete from rate_limits where expires <= $1", [now]);
+    await client.query(
+      `insert into rate_limits(key,count,expires) values($1,1,$2)
+       on conflict(key) do update set count=rate_limits.count+1`,
+      [key, now + windowMs],
+    );
+    const row = await client.query(
+      "select count, expires from rate_limits where key=$1",
+      [key],
+    );
+    const r = row.rows[0];
+    return {
+      allowed: Number(r.count) <= maximum,
+      retryAfter: Math.max(1, Math.ceil((Number(r.expires) - now) / 1000)),
+    };
   });
 }
+
+export function adminLeaves() {
+  return q<{
+    id: string;
+    category: string;
+    leaf_message: string;
+    chamber_id: number;
+    chamber_reason: string;
+    created_at: string;
+    mode: string;
+    is_demo: number;
+    status: string;
+  }>(
+    `select ${publicFields}, status from approved_leaves order by created_at desc, id desc limit 500`,
+  ).then((rows) =>
+    rows.map((row) => ({ ...rowToLeaf(row), status: String(row.status) })),
+  );
+}
+
+export function setLeafStatus(id: string, status: "approved" | "hidden") {
+  return transaction(async (client) => {
+    const result = await client.query(
+      "update approved_leaves set status=$1 where id=$2 and status<>$2",
+      [status, id],
+    );
+    if (result.rowCount && result.rowCount > 0) {
+      changed();
+      await client.query(
+        "insert into audit_events(action,leaf_id,created_at) values($1,$2,$3)",
+        [status === "hidden" ? "hide" : "restore", id, new Date().toISOString()],
+      );
+    }
+    return Boolean(result.rowCount && result.rowCount > 0);
+  });
+}
+
 export function seedDemo() {
-  return transaction(() => {
-    if (
-      Number(
-        db
-          .prepare(
-            "SELECT count(*) AS count FROM approved_leaves WHERE is_demo=1",
-          )
-          .get()!.count,
-      )
-    )
-      return 0;
-    for (let round = 0; round < 4; round++)
+  return transaction(async (client) => {
+    const countRow = await client.query(
+      "select count(*) as count from approved_leaves where is_demo=1",
+    );
+    if (Number(countRow.rows[0].count) > 0) return 0;
+    for (let round = 0; round < 4; round++) {
       for (const theme of themes) {
         const id = randomUUID();
-        db.prepare(
-          "INSERT INTO approved_leaves(id,idempotency_key,category,leaf_message,chamber_id,chamber_reason,created_at,mode,is_demo,payload_hash) VALUES(?,?,?,?,?,?,?,?,1,'demo')",
-        ).run(
-          id,
-          id,
-          theme.id,
-          theme.message,
-          theme.chamber,
-          "An illustrative contribution for the hackathon demonstration.",
-          new Date(
-            Date.now() - (24 - round * 6 - themes.indexOf(theme)) * 60000,
-          ).toISOString(),
-          "offline",
+        await client.query(
+          `insert into approved_leaves(id,idempotency_key,category,leaf_message,chamber_id,chamber_reason,created_at,mode,is_demo,payload_hash)
+           values($1,$2,$3,$4,$5,$6,$7,$8,1,'demo')`,
+          [
+            id,
+            id,
+            theme.id,
+            theme.message,
+            theme.chamber,
+            "An illustrative contribution for the hackathon demonstration.",
+            new Date(
+              Date.now() - (24 - round * 6 - themes.indexOf(theme)) * 60000,
+            ).toISOString(),
+            "offline",
+          ],
         );
       }
+    }
     changed();
-    db.prepare(
-      "INSERT INTO audit_events(action,created_at) VALUES('seed_demo',?)",
-    ).run(new Date().toISOString());
+    await client.query(
+      "insert into audit_events(action,created_at) values('seed_demo',$1)",
+      [new Date().toISOString()],
+    );
     return 24;
   });
 }
+
 export function clearDemo() {
-  return transaction(() => {
-    const count = db
-      .prepare("DELETE FROM approved_leaves WHERE is_demo=1")
-      .run().changes;
+  return transaction(async (client) => {
+    const result = await client.query(
+      "delete from approved_leaves where is_demo=1",
+    );
     changed();
-    db.prepare(
-      "INSERT INTO audit_events(action,created_at) VALUES('clear_demo',?)",
-    ).run(new Date().toISOString());
-    return Number(count);
+    await client.query(
+      "insert into audit_events(action,created_at) values('clear_demo',$1)",
+      [new Date().toISOString()],
+    );
+    return Number(result.rowCount);
   });
 }

@@ -30,54 +30,65 @@ function pinHash(pin: string, salt: string): Promise<Buffer> {
     ),
   );
 }
-export function currentVisitorProfile(request: Request): string | null {
-  db.prepare("DELETE FROM visitor_profile_sessions WHERE expires <= ?").run(
-    Date.now(),
-  );
+export async function currentVisitorProfile(request: Request): Promise<string | null> {
+  await transaction(async (client) => {
+    await client.query(
+      "delete from visitor_profile_sessions where expires <= $1",
+      [Date.now()],
+    );
+  });
   const token = cookieValue(request, cookieName);
   if (!token || token.length > 150) return null;
-  const row = db
-    .prepare(
-      "SELECT profile_id FROM visitor_profile_sessions WHERE token_hash=? AND expires>?",
-    )
-    .get(digest(token), Date.now());
-  return row ? String(row.profile_id) : null;
+  const rows = await db.query(
+    "select profile_id from visitor_profile_sessions where token_hash=$1 and expires>$2",
+    [digest(token), Date.now()],
+  );
+  return rows.rows[0] ? String(rows.rows[0].profile_id) : null;
 }
-export function linkVisitorLeaf(profile: string, leaf: string, owner: string) {
-  if (!db.prepare("SELECT 1 FROM visitor_profiles WHERE id=?").get(profile))
-    return;
-  const owned = db
-    .prepare(
-      "SELECT 1 FROM visitor_submissions WHERE leaf_id=? AND owner_key=? AND outcome='approved'",
-    )
-    .get(leaf, owner);
-  if (!owned)
+export async function linkVisitorLeaf(
+  profile: string,
+  leaf: string,
+  owner: string,
+): Promise<void> {
+  const profileRows = await db.query(
+    "select 1 from visitor_profiles where id=$1",
+    [profile],
+  );
+  if (!profileRows.rows[0]) return;
+  const owned = await db.query(
+    "select 1 from visitor_submissions where leaf_id=$1 and owner_key=$2 and outcome='approved'",
+    [leaf, owner],
+  );
+  if (!owned.rows[0])
     throw new AppError(
       "This voice cannot be connected from this browser. Use the device that submitted it.",
       403,
       "NOT_YOUR_VOICE",
     );
-  const linked = db
-    .prepare("SELECT profile_id FROM visitor_profile_leaves WHERE leaf_id=?")
-    .get(leaf);
-  if (linked && linked.profile_id !== profile)
+  const linked = await db.query(
+    "select profile_id from visitor_profile_leaves where leaf_id=$1",
+    [leaf],
+  );
+  if (linked.rows[0] && linked.rows[0].profile_id !== profile)
     throw new AppError(
       "This voice is already connected to another visit history.",
       403,
       "NOT_YOUR_VOICE",
     );
-  db.prepare(
-    "INSERT OR IGNORE INTO visitor_profile_leaves(leaf_id,profile_id,linked_at) VALUES(?,?,?)",
-  ).run(leaf, profile, new Date().toISOString());
-}
-export function visitorLeafLinked(profile: string, leaf: string) {
-  return Boolean(
-    db
-      .prepare(
-        "SELECT 1 FROM visitor_profile_leaves WHERE profile_id=? AND leaf_id=?",
-      )
-      .get(profile, leaf),
+  await db.query(
+    "insert into visitor_profile_leaves(leaf_id,profile_id,linked_at) values($1,$2,$3) on conflict(leaf_id) do nothing",
+    [leaf, profile, new Date().toISOString()],
   );
+}
+export async function visitorLeafLinked(
+  profile: string,
+  leaf: string,
+): Promise<boolean> {
+  const rows = await db.query(
+    "select 1 from visitor_profile_leaves where profile_id=$1 and leaf_id=$2",
+    [profile, leaf],
+  );
+  return Boolean(rows.rows[0]);
 }
 export async function unlockVisitorHistory(
   request: Request,
@@ -90,8 +101,8 @@ export async function unlockVisitorHistory(
 ) {
   const session = visitor(request),
     cidHash = keyed("cid", input.cid);
-  const perCid = consumeRate(`history:cid:${cidHash}`, 6, 15 * 60 * 1000);
-  const perBrowser = consumeRate(
+  const perCid = await consumeRate(`history:cid:${cidHash}`, 6, 15 * 60 * 1000);
+  const perBrowser = await consumeRate(
     `history:browser:${visitorOwner(session.id)}`,
     15,
     15 * 60 * 1000,
@@ -104,23 +115,22 @@ export async function unlockVisitorHistory(
     );
   const owner = visitorOwner(session.id);
   if (input.action === "remember") {
-    const owned = db
-      .prepare(
-        "SELECT 1 FROM visitor_submissions WHERE leaf_id=? AND owner_key=? AND outcome='approved'",
-      )
-      .get(input.leafId || "", owner);
-    if (!owned)
+    const owned = await db.query(
+      "select 1 from visitor_submissions where leaf_id=$1 and owner_key=$2 and outcome='approved'",
+      [input.leafId || "", owner],
+    );
+    if (!owned.rows[0])
       throw new AppError(
         "Open the submitted voice on the browser that created it to remember this visit.",
         403,
         "NOT_YOUR_VOICE",
       );
   }
-  let profile = db
-    .prepare(
-      "SELECT id,pin_salt,pin_hash FROM visitor_profiles WHERE cid_hash=?",
-    )
-    .get(cidHash);
+  const profileRows = await db.query(
+    "select id, pin_salt, pin_hash from visitor_profiles where cid_hash=$1",
+    [cidHash],
+  );
+  const profile = profileRows.rows[0];
   const salt = profile
     ? String(profile.pin_salt)
     : randomBytes(16).toString("hex");
@@ -141,26 +151,20 @@ export async function unlockVisitorHistory(
       "HISTORY_LOCKED",
     );
   const token = randomBytes(32).toString("base64url");
-  transaction(() => {
+  await transaction(async (client) => {
     if (!profile) {
-      // The credential hash is indexed; the national identifier itself is never stored.
-      db.prepare(
-        "INSERT OR IGNORE INTO visitor_profiles(id,cid_hash,pin_salt,pin_hash,created_at) VALUES(?,?,?,?,?)",
-      ).run(
-        randomUUID(),
-        cidHash,
-        salt,
-        hashed.toString("hex"),
-        new Date().toISOString(),
+      await client.query(
+        "insert into visitor_profiles(id,cid_hash,pin_salt,pin_hash,created_at) values($1,$2,$3,$4,$5) on conflict(cid_hash) do nothing",
+        [randomUUID(), cidHash, salt, hashed.toString("hex"), new Date().toISOString()],
       );
-      profile = db
-        .prepare(
-          "SELECT id,pin_salt,pin_hash FROM visitor_profiles WHERE cid_hash=?",
-        )
-        .get(cidHash)!;
+      const profileResult = await client.query(
+        "select id, pin_salt, pin_hash from visitor_profiles where cid_hash=$1",
+        [cidHash],
+      );
+      const newProfile = profileResult.rows[0];
       if (
-        profile.pin_salt !== salt ||
-        profile.pin_hash !== hashed.toString("hex")
+        newProfile.pin_salt !== salt ||
+        newProfile.pin_hash !== hashed.toString("hex")
       )
         throw new AppError(
           "Please try unlocking your history again.",
@@ -169,10 +173,11 @@ export async function unlockVisitorHistory(
         );
     }
     if (input.action === "remember" && input.leafId)
-      linkVisitorLeaf(String(profile!.id), input.leafId, owner);
-    db.prepare(
-      "INSERT INTO visitor_profile_sessions(token_hash,profile_id,expires) VALUES(?,?,?)",
-    ).run(digest(token), String(profile!.id), Date.now() + duration * 1000);
+      await linkVisitorLeaf(String(profile!.id), input.leafId, owner);
+    await client.query(
+      "insert into visitor_profile_sessions(token_hash,profile_id,expires) values($1,$2,$3)",
+      [digest(token), String(profile!.id), Date.now() + duration * 1000],
+    );
   });
   return {
     profile: String(profile!.id),
@@ -182,28 +187,28 @@ export async function unlockVisitorHistory(
     ],
   };
 }
-export function visitorHistory(profile: string, page = 1) {
-  const total = Number(
-    db
-      .prepare(
-        "SELECT count(*) AS n FROM visitor_profile_leaves p JOIN approved_leaves l ON l.id=p.leaf_id WHERE p.profile_id=?",
-      )
-      .get(profile)!.n,
+export async function visitorHistory(profile: string, page = 1) {
+  const totalRows = await db.query(
+    "select count(*) as n from visitor_profile_leaves p join approved_leaves l on l.id=p.leaf_id where p.profile_id=$1",
+    [profile],
   );
-  const rows = db
-    .prepare(
-      `SELECT l.id,l.leaf_message,l.category,l.chamber_id,l.created_at,l.status,s.private_message,s.private_reply,s.visit_kind
-    FROM visitor_profile_leaves p JOIN approved_leaves l ON l.id=p.leaf_id
-    LEFT JOIN visitor_submissions s ON s.leaf_id=l.id
-    WHERE p.profile_id=? ORDER BY l.created_at DESC,l.id DESC LIMIT 5 OFFSET ?`,
-    )
-    .all(profile, (page - 1) * 5);
+  const total = Number(totalRows.rows[0].n);
+  const rows = await db.query(
+    `select l.id, l.leaf_message, l.category, l.chamber_id, l.created_at, l.status, s.private_message, s.private_reply, s.visit_kind
+     from visitor_profile_leaves p
+     join approved_leaves l on l.id = p.leaf_id
+     left join visitor_submissions s on s.leaf_id = l.id
+     where p.profile_id = $1
+     order by l.created_at desc, l.id desc
+     limit 5 offset $2`,
+    [profile, (page - 1) * 5],
+  );
   return {
     authenticated: true,
     total,
     page,
     pages: Math.max(1, Math.ceil(total / 5)),
-    voices: rows.map((row) => ({
+    voices: rows.rows.map((row) => ({
       id: String(row.id),
       leaf_message: String(row.leaf_message),
       category: row.category,
@@ -219,21 +224,27 @@ export function visitorHistory(profile: string, page = 1) {
     })),
   };
 }
-export function endVisitorSession(request: Request, forget = false) {
-  const profile = currentVisitorProfile(request),
+export async function endVisitorSession(request: Request, forget = false) {
+  const profile = await currentVisitorProfile(request),
     token = cookieValue(request, cookieName);
-  transaction(() => {
+  await transaction(async (client) => {
     if (forget && profile) {
-      db.prepare("DELETE FROM visitor_profile_leaves WHERE profile_id=?").run(
-        profile,
+      await client.query(
+        "delete from visitor_profile_leaves where profile_id=$1",
+        [profile],
       );
-      db.prepare("DELETE FROM visitor_profile_sessions WHERE profile_id=?").run(
-        profile,
+      await client.query(
+        "delete from visitor_profile_sessions where profile_id=$1",
+        [profile],
       );
-      db.prepare("DELETE FROM visitor_profiles WHERE id=?").run(profile);
+      await client.query(
+        "delete from visitor_profiles where id=$1",
+        [profile],
+      );
     } else if (token)
-      db.prepare("DELETE FROM visitor_profile_sessions WHERE token_hash=?").run(
-        digest(token),
+      await client.query(
+        "delete from visitor_profile_sessions where token_hash=$1",
+        [digest(token)],
       );
   });
   return cookie(cookieName, "", request, 0);

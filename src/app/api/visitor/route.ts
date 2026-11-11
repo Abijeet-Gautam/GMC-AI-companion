@@ -33,7 +33,7 @@ const credentials = z
   .strict();
 export async function GET(request: Request) {
   try {
-    const profile = currentVisitorProfile(request);
+    const profile = await currentVisitorProfile(request);
     const page = z.coerce
       .number()
       .int()
@@ -41,14 +41,17 @@ export async function GET(request: Request) {
       .max(100000)
       .catch(1)
       .parse(new URL(request.url).searchParams.get("page") || 1);
+    const linked = profile
+      ? await visitorLeafLinked(
+          profile,
+          new URL(request.url).searchParams.get("leafId") || "",
+        )
+      : false;
     return Response.json(
       profile
         ? {
-            ...visitorHistory(profile, page),
-            linked: visitorLeafLinked(
-              profile,
-              new URL(request.url).searchParams.get("leafId") || "",
-            ),
+            ...(await visitorHistory(profile, page)),
+            linked,
           }
         : { authenticated: false, voices: [], total: 0, page: 1, pages: 1 },
       { headers: noStore },
@@ -76,7 +79,9 @@ export async function POST(request: Request) {
     const session = await unlockVisitorHistory(request, input);
     const headers = new Headers(noStore);
     session.cookies.forEach((value) => headers.append("Set-Cookie", value));
-    return Response.json(visitorHistory(session.profile), { headers });
+    return Response.json(await visitorHistory(session.profile), {
+      headers,
+    });
   } catch (error) {
     return errorResponse(error);
   }
@@ -86,7 +91,7 @@ export async function DELETE(request: Request) {
     requireSameOrigin(request);
     const forget = new URL(request.url).searchParams.get("forget") === "true";
     const headers = new Headers(noStore);
-    headers.append("Set-Cookie", endVisitorSession(request, forget));
+    headers.append("Set-Cookie", await endVisitorSession(request, forget));
     return Response.json({ ok: true }, { headers });
   } catch (error) {
     return errorResponse(error);
@@ -95,7 +100,7 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   try {
     requireSameOrigin(request);
-    const profile = currentVisitorProfile(request);
+    const profile = await currentVisitorProfile(request);
     if (!profile)
       throw new AppError("Unlock your history first.", 401, "HISTORY_LOCKED");
     const parsed = z
@@ -104,7 +109,7 @@ export async function PATCH(request: Request) {
       .safeParse(await readJson(request));
     if (!parsed.success)
       throw new AppError("Choose a voice to connect to your history.");
-    linkVisitorLeaf(
+    await linkVisitorLeaf(
       profile,
       parsed.data.leafId,
       visitorOwner(visitor(request).id),

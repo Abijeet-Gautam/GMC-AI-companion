@@ -1,15 +1,15 @@
-import { db } from "@/server/db";
-import { aiMode } from "@/server/services/ai";
 import { noStore } from "@/server/http";
+import { aiMode } from "@/server/services/ai";
+import { asyncRevision } from "@/server/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export function GET() {
+export async function GET() {
   try {
-    db.prepare("SELECT 1").get();
+    await asyncRevision();
     return Response.json(
       {
         status: "ok",
-        database: "sqlite",
+        database: "postgres",
         ai: aiMode(),
         serverTime: new Date().toISOString(),
       },

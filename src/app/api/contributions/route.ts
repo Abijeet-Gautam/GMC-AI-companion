@@ -31,6 +31,7 @@ import {
 import { after } from "next/server";
 import type { ContributionReceipt } from "@/lib/catalog";
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 const globalFlights = globalThis as unknown as {
   gmcFlights?: Map<
     string,
@@ -48,23 +49,28 @@ async function processLeaf(
     input.aspiration,
     input.theme,
   );
-  const record = insertLeaf(
+  const record = await insertLeaf(
     input.idempotencyKey,
     hash,
     {
-      id: randomUUID(),
       ...generated,
+      id: randomUUID(),
       created_at: new Date().toISOString(),
       is_demo: false,
     },
-    { ...input, reply: visitor_reply, owner_key: owner },
+    {
+      ...input,
+      reply: visitor_reply,
+      owner_key: owner,
+    },
   );
+  if (!record) throw new AppError("Failed to insert leaf.", 500);
   if (record.status !== "approved")
     throw new AppError("This leaf has been removed from the public tree.", 410);
-  if (profile) linkVisitorLeaf(profile, record.leaf.id, owner);
+  if (profile) await linkVisitorLeaf(profile, record.leaf.id, owner);
   return {
     leaf: record.leaf,
-    reply: replyByKey(input.idempotencyKey) || visitor_reply,
+    reply: (await replyByKey(input.idempotencyKey)) || visitor_reply,
     reply_mode: record.leaf.mode,
     mode: record.leaf.mode,
   };
@@ -99,7 +105,7 @@ export async function POST(request: Request) {
           JSON.stringify({ aspiration: input.aspiration, theme: input.theme }),
         )
         .digest("hex");
-    const existing = getByKey(input.idempotencyKey);
+    const existing = await getByKey(input.idempotencyKey);
     if (existing) {
       if (existing.hash && existing.hash !== hash)
         throw new AppError(
@@ -112,11 +118,12 @@ export async function POST(request: Request) {
           "This leaf has been removed from the public tree.",
           410,
         );
-      const savedReply = replyByKey(input.idempotencyKey);
+      const savedReply = await replyByKey(input.idempotencyKey);
       return respond({
         leaf: existing.leaf,
         reply:
-          savedReply || offlineReply(input.aspiration, existing.leaf.category),
+          savedReply ||
+          offlineReply(input.aspiration, existing.leaf.category),
         reply_mode: savedReply ? existing.leaf.mode : "offline",
         mode: existing.leaf.mode,
       });
@@ -131,25 +138,25 @@ export async function POST(request: Request) {
         );
       return respond(await inflight.promise);
     }
-    const rejected = rejectedSubmission(input.idempotencyKey);
+    const rejected = await rejectedSubmission(input.idempotencyKey);
     if (rejected)
       throw new AppError(
         "This hope needs a revision. Edit your message before submitting again.",
         422,
         "MODERATION_REJECTED",
       );
-    if (!getTreeSettings().acceptingContributions)
+    if (!(await getTreeSettings()).acceptingContributions)
       throw new AppError(
         "The tree is taking a short rest. Your hope is kept on this phone; please try again shortly.",
         503,
         "TREE_PAUSED",
       );
-    const globalRate = consumeRate(
+    const globalRate = await consumeRate(
       "submissions:global",
       Number(process.env.GLOBAL_RATE_LIMIT) || 60,
       60000,
     );
-    const deviceRate = consumeRate(
+    const deviceRate = await consumeRate(
       `submissions:${session.id}`,
       Number(process.env.SUBMISSION_RATE_LIMIT) || 5,
       600000,
@@ -174,7 +181,7 @@ export async function POST(request: Request) {
       input,
       hash,
       visitorOwner(session.id),
-      currentVisitorProfile(request),
+      await currentVisitorProfile(request),
     );
     flights.set(input.idempotencyKey, { hash, promise });
     try {

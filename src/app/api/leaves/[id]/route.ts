@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params,
-    leaf = getLeaf(id);
+    leaf = await getLeaf(id);
   return leaf
     ? Response.json({ leaf }, { headers: noStore })
     : Response.json(

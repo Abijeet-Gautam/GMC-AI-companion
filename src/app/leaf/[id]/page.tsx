@@ -10,7 +10,7 @@ export default async function LeafPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params,
-    leaf = getLeaf(id);
+    leaf = await getLeaf(id);
   if (!leaf) notFound();
   return (
     <>

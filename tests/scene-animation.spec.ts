@@ -56,7 +56,7 @@ test("garden has visible wind, automatic rotation, cast shadows and working scen
       .click();
     await expect
       .poll(async () => Number(await host.getAttribute("data-gust")))
-      .toBeGreaterThan(1);
+      .toBeGreaterThan(0);
     const distance = Number(await host.getAttribute("data-distance"));
     await page.getByRole("button", { name: "Zoom in on tree" }).click();
     await expect

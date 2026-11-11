@@ -5,21 +5,22 @@ import { createServer } from "node:http";
 const run = Date.now().toString();
 mkdirSync("data/tests", { recursive: true });
 let mode = "safe",
-  generations = 0;
+  generations = 0,
+  lastGeneration = null;
 const provider = createServer(async (req, res) => {
   let text = "";
   for await (const chunk of req) text += chunk;
   const body = text ? JSON.parse(text) : {};
   if (req.url === "/control") {
     mode = body.mode || "safe";
-    generations = 0;
+    ((generations = 0), (lastGeneration = null));
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ ok: true }));
     return;
   }
   if (req.url === "/counts") {
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ generations }));
+    res.end(JSON.stringify({ generations, lastGeneration }));
     return;
   }
   res.setHeader("Content-Type", "application/json");
@@ -39,24 +40,41 @@ const provider = createServer(async (req, res) => {
             flagged:
               mode === "input_flagged" ||
               (mode === "output_flagged" &&
-                String(body.input).startsWith("May safe")),
+                String(body.input).startsWith("May safe")) ||
+              (mode === "reply_flagged" &&
+                String(body.input).includes("Mock unsafe private reply")),
           },
         ],
       }),
     );
     return;
   }
-  if (body.text) generations++;
+  if (body.text) {
+    generations++;
+    lastGeneration = { model: body.model, reasoning: body.reasoning };
+  }
   const leaf = {
-    safe: mode !== "rejected",
+    safe: mode !== "rejected" && mode !== "rejected_empty",
     category: "education",
     leaf_message:
-      mode === "pii"
-        ? "Email student@example.com"
-        : mode === "invalid"
-          ? "x".repeat(140)
-          : "May safe learning spaces help every student build a brighter future.",
+      mode === "rejected_empty"
+        ? ""
+        : mode === "pii"
+          ? "Email student@example.com"
+          : mode === "invalid"
+            ? "x".repeat(140)
+            : "May safe learning spaces help every student build a brighter future.",
     chamber_id: 3,
+    visitor_reply:
+      mode === "rejected_empty"
+        ? ""
+        : mode === "reply_pii"
+          ? "You can email student@example.com to find a better school for your child."
+          : mode === "reply_flagged"
+            ? "Mock unsafe private reply about the visitor's school note."
+            : mode === "reply_invalid"
+              ? "x".repeat(400)
+              : "Learning in a welcoming school can help students feel confident and supported. Your hope highlights how much that everyday experience matters to the city's future.",
     confidence: 0.98,
     moderation_flags: mode === "rejected" ? ["not_an_aspiration"] : [],
   };
@@ -102,6 +120,7 @@ const children = [
         ADMIN_PASSWORD: "test-only-staff-password",
         AI_MODE: config.ai,
         OPENAI_API_KEY: config.key,
+        OPENAI_MODEL: "gpt-6-luna",
         OPENAI_BASE_URL: "http://127.0.0.1:3102/v1",
         AI_TIMEOUT_MS: "1200",
         DATABASE_PATH: config.db,

@@ -3,12 +3,15 @@ import { ArrowUpRight, Compass } from "lucide-react";
 import { SiteHeader, SiteFooter } from "@/components/brand";
 import { chambers, chamberDetails, themes } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
+import { ChamberExplorer } from "@/features/chambers/chamber-explorer";
 export default function ChambersPage() {
   return (
     <>
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-6 py-16 md:px-10">
-        <p className="eyebrow mb-5 text-foreground/45">Gelephu experience centre</p>
+        <p className="eyebrow mb-5 text-foreground/45">
+          Gelephu experience centre
+        </p>
         <h1 className="max-w-2xl text-5xl leading-tight tracking-tight md:text-6xl">
           Let your hope lead
           <br />
@@ -18,6 +21,7 @@ export default function ChambersPage() {
           Four chambers. Four ways to imagine a shared future. Follow the theme
           that speaks to you, and bring your own perspective to the journey.
         </p>
+        <ChamberExplorer />
         <div className="grid gap-5 md:grid-cols-2">
           {Object.entries(chambers).map(([key, name]) => {
             const id = Number(key) as keyof typeof chambers,
@@ -45,6 +49,9 @@ export default function ChambersPage() {
                 <p className="text-sm leading-relaxed text-foreground/60">
                   {detail.description}
                 </p>
+                <p className="mt-3 text-xs leading-relaxed text-foreground/55">
+                  {detail.location}
+                </p>
                 <div className="mt-7 flex flex-wrap gap-2">
                   {themes
                     .filter((theme) => theme.chamber === id)
@@ -63,9 +70,9 @@ export default function ChambersPage() {
           })}
         </div>
         <p className="mt-6 max-w-2xl text-[10px] leading-relaxed text-foreground/50">
-          Chamber names follow the project brief. The descriptions and thematic
-          pathways here are project interpretations, pending review by the
-          Experience Centre.
+          Chamber numbers and exhibit names follow the supplied
+          experience-centre blueprint. The connections between your hope and an
+          exhibit are suggested pathways.
         </p>
         <div className="mt-12 text-center">
           <Button asChild size="lg">

@@ -8,20 +8,29 @@ import {
   Download,
   Share2,
   Sprout,
+  MessageCircle,
 } from "lucide-react";
-import { themeFor, chambers, chamberDetails, type Leaf } from "@/lib/catalog";
+import { themeFor, chambers, type Leaf } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { appUrl } from "@/lib/client";
+import { ChamberRecommendation } from "@/features/chambers/chamber-recommendation";
 export function LeafResult({
   leaf,
   keepsake = false,
+  compact = false,
+  reply = "",
+  replyMode = "offline",
+  original = "",
 }: {
   leaf: Leaf;
   keepsake?: boolean;
+  compact?: boolean;
+  reply?: string;
+  replyMode?: "offline" | "openai";
+  original?: string;
 }) {
   const [notice, setNotice] = useState("");
-  const theme = themeFor(leaf.category),
-    chamber = chamberDetails[leaf.chamber_id];
+  const theme = themeFor(leaf.category);
   async function share() {
     const url = appUrl() + "/leaf/" + leaf.id;
     if (navigator.share)
@@ -74,6 +83,87 @@ export function LeafResult({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setNotice("Your keepsake has been downloaded.");
   }
+  if (compact)
+    return (
+      <div className="join-receipt space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent">
+            <Check size={20} />
+          </span>
+          <div>
+            <h1 className="text-2xl">Your leaf is growing.</h1>
+            <p className="mt-1 text-[10px] text-foreground/55">
+              Look for leaf #{leaf.id.slice(0, 6)} on the big screen.
+            </p>
+          </div>
+        </div>
+        {reply && (
+          <section className="private-reply" aria-label="A reply to your note">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-xs font-medium">
+                <MessageCircle size={15} />A little reflection for you
+              </span>
+              <span className="text-[9px] text-foreground/45">
+                {replyMode === "openai" ? "OpenAI reply" : "Offline reply"}
+              </span>
+            </div>
+            <p className="text-sm leading-6" data-testid="visitor-reply">
+              {reply}
+            </p>
+            {original && (
+              <details className="mt-3 text-xs text-foreground/55">
+                <summary className="cursor-pointer">Your original note</summary>
+                <p className="mt-2 leading-5">{original}</p>
+              </details>
+            )}
+            <p className="mt-3 text-[9px] text-foreground/45">
+              This reply is not shown on the public tree.
+            </p>
+          </section>
+        )}
+        <section
+          className="flex items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground"
+          aria-label="Your public leaf"
+        >
+          <Sprout size={26} className="shrink-0 text-accent" />
+          <div>
+            <p className="mb-1 text-[9px] text-white/45">On the shared tree</p>
+            <blockquote className="text-sm leading-5">
+              “{leaf.leaf_message}”
+            </blockquote>
+          </div>
+        </section>
+        <ChamberRecommendation
+          chamber={leaf.chamber_id}
+          reason={leaf.chamber_reason}
+        />
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="secondary" size="sm" onClick={share}>
+            <Share2 size={13} />
+            Share leaf
+          </Button>
+          <Button variant="secondary" size="sm" onClick={download}>
+            <Download size={13} />
+            Save keepsake
+          </Button>
+          <Link
+            href={`/leaf/${leaf.id}`}
+            className="flex min-h-10 items-center justify-center gap-1 rounded-full bg-muted px-2 text-center text-[10px]"
+          >
+            Open your keepsake page
+            <ArrowUpRight size={12} className="shrink-0" />
+          </Link>
+        </div>
+        {notice && (
+          <p
+            role="status"
+            className="break-all text-center text-[10px] text-foreground/60"
+          >
+            {notice}
+          </p>
+        )}
+      </div>
+    );
   return (
     <div className="space-y-6 soft-in">
       <div className="text-center">
@@ -150,23 +240,11 @@ export function LeafResult({
       >
         {notice}
       </p>
-      <section className="rounded-xl bg-card p-6">
-        <p className="eyebrow mb-3 text-foreground/45">
-          Your next discovery · Chamber {leaf.chamber_id}
-        </p>
-        <h2 className="mb-3 text-3xl">{chambers[leaf.chamber_id]}</h2>
-        <p className="text-sm leading-relaxed text-foreground/65">
-          {leaf.chamber_reason}
-        </p>
-        <p className="mt-3 text-xs leading-relaxed text-foreground/50">
-          {chamber.description}
-        </p>
-        <Button asChild className="mt-5 w-full">
-          <Link href={`/chambers#chamber-${leaf.chamber_id}`}>
-            Explore the chambers <ArrowUpRight size={16} />
-          </Link>
-        </Button>
-      </section>
+      <ChamberRecommendation
+        chamber={leaf.chamber_id}
+        reason={leaf.chamber_reason}
+        expanded
+      />
       <p className="text-center text-[10px] leading-relaxed text-foreground/50">
         {leaf.mode === "offline"
           ? "Your leaf uses a curated offline response inspired by your theme and keywords."

@@ -2,15 +2,19 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   Sparkles,
-  ShieldCheck,
   Sprout,
   LoaderCircle,
 } from "lucide-react";
-import { themes, themeFor, type Theme, type Leaf } from "@/lib/catalog";
+import {
+  themes,
+  themeFor,
+  type Theme,
+  type Leaf,
+  type ContributionReceipt,
+} from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { ThemeIcon } from "@/components/theme-icon";
 import { LeafResult } from "@/features/leaf/leaf-result";
@@ -29,6 +33,9 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [leaf, setLeaf] = useState<Leaf | null>(null);
+  const [replyMode, setReplyMode] = useState<"openai" | "offline">("offline");
+  const [reply, setReply] = useState(""),
+    [original, setOriginal] = useState("");
   const key = useRef<string | null>(null),
     lock = useRef(false);
   useEffect(() => {
@@ -57,6 +64,24 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
         })
           .then((data) => {
             setLeaf(data.leaf);
+            try {
+              const cached = JSON.parse(
+                sessionStorage.getItem("gmc-hope-conversation") || "null",
+              );
+              if (
+                cached?.leafId === data.leaf.id &&
+                typeof cached.reply === "string" &&
+                cached.reply.length <= 360 &&
+                typeof cached.original === "string" &&
+                cached.original.length <= 200
+              ) {
+                setReply(cached.reply);
+                setOriginal(cached.original);
+                setReplyMode(cached.mode === "openai" ? "openai" : "offline");
+              }
+            } catch {
+              /* Optional private conversation recovery. */
+            }
             setStep(2);
           })
           .catch(() => {
@@ -101,7 +126,12 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
   }, [theme, aspiration, leaf, hydrated]);
   useEffect(() => {
     if (hydrated && step === 1)
-      section.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+      });
   }, [step, hydrated]);
   function edit(text: string) {
     setAspiration(text);
@@ -112,6 +142,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     event.preventDefault();
     if (lock.current) return;
     lock.current = true;
+    section.current?.querySelector("textarea")?.blur();
     setBusy(true);
     setError("");
     key.current ??= uuid();
@@ -124,7 +155,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
       /* Optional recovery. */
     }
     try {
-      const data = await api<{ leaf: Leaf }>("/api/contributions", {
+      const data = await api<ContributionReceipt>("/api/contributions", {
         method: "POST",
         body: JSON.stringify({
           aspiration,
@@ -134,8 +165,20 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
         }),
       });
       setLeaf(data.leaf);
+      setReply(data.reply);
+      setReplyMode(data.reply_mode);
+      setOriginal(aspiration);
       try {
         sessionStorage.setItem("gmc-hope-receipt", data.leaf.id);
+        sessionStorage.setItem(
+          "gmc-hope-conversation",
+          JSON.stringify({
+            leafId: data.leaf.id,
+            reply: data.reply,
+            mode: data.reply_mode,
+            original: aspiration,
+          }),
+        );
       } catch {
         /* Optional receipt recovery. */
       }
@@ -158,270 +201,224 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
   }
   if (leaf)
     return (
-      <div className="mx-auto max-w-xl">
-        <LeafResult leaf={leaf} />
+      <section className="join-panel">
+        <LeafResult
+          leaf={leaf}
+          compact
+          reply={reply}
+          replyMode={replyMode}
+          original={original}
+        />
         <Button
-          className="mt-6 w-full"
-          variant="secondary"
+          className="mt-3 w-full"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             try {
               sessionStorage.removeItem("gmc-hope-receipt");
+              sessionStorage.removeItem("gmc-hope-conversation");
             } catch {
               /* Optional storage. */
             }
             key.current = null;
             setLeaf(null);
+            setReply("");
+            setOriginal("");
             setConsent(false);
             setStep(0);
+            setRecovered(false);
           }}
         >
-          Grow another hope <Sprout size={16} />
+          Grow another hope
+          <Sprout size={14} />
         </Button>
-      </div>
+      </section>
     );
   return (
-    <div className="grid gap-7 md:grid-cols-[.8fr_1.2fr] md:gap-20">
-      <aside>
-        <Link
-          href="/"
-          className="mb-5 inline-flex min-h-11 items-center gap-2 text-xs text-foreground/55 md:mb-10"
-        >
-          <ArrowLeft size={14} />
-          Back to the tree
-        </Link>
-        <p className="eyebrow mb-5 text-foreground/45">
-          Your voice belongs here
+    <section ref={section} className="join-panel" aria-label="Add your hope">
+      <ol aria-label="Your progress" className="join-progress">
+        {["Theme", "Your note", "Your leaf"].map((label, index) => (
+          <li key={label} aria-current={step === index ? "step" : undefined}>
+            <span>{index + 1}</span>
+            {label}
+          </li>
+        ))}
+      </ol>
+      {!online && (
+        <p role="status" className="join-notice">
+          You're offline. Your note is saved in this tab; reconnect to send it.
         </p>
-        <h1 className="text-3xl leading-[1.1] tracking-[-.04em] md:text-6xl">
-          A little hope.
-          <br />A living <em>future.</em>
-        </h1>
-        <p className="mt-4 max-w-sm text-sm leading-relaxed text-foreground/60 md:mt-6">
-          Take a moment to imagine the city you want to see. We'll help your
-          hope find its branch.
+      )}
+      {paused && (
+        <p role="status" className="join-notice">
+          The tree is resting for a moment. Keep your hope here and try again
+          shortly.
         </p>
-        <div className="mt-10 hidden items-center gap-3 pt-6 text-xs text-foreground/55 md:flex">
-          <ShieldCheck size={18} strokeWidth={1.4} />
-          <span>
-            Anonymous by design.
-            <br />
-            No name or account needed.
-          </span>
-        </div>
-      </aside>
-      <section
-        ref={section}
-        className="min-w-0 scroll-mt-5 rounded-3xl bg-card p-5 sm:p-8"
-      >
-        {!online && (
-          <p
-            role="status"
-            className="mb-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-900"
-          >
-            Your phone is offline. Your draft is kept in this tab. Reconnect to
-            grow your leaf.
+      )}
+      {recovered && aspiration && (
+        <p className="mb-3 text-[10px] text-foreground/55">
+          Your unfinished note is back.
+        </p>
+      )}
+      {step === 0 ? (
+        <div className="soft-in">
+          <h1 className="text-3xl tracking-tight">What matters to you?</h1>
+          <p className="mb-5 mt-2 text-xs text-foreground/55">
+            Choose a branch. Your words come next.
           </p>
-        )}
-        {paused && (
-          <p role="status" className="mb-4 rounded-lg bg-muted p-3 text-xs">
-            The tree is resting for a moment. Keep your hope here and try again
-            shortly.
-          </p>
-        )}
-        {recovered && aspiration && (
-          <p className="mb-4 text-xs text-foreground/60">
-            Your unfinished hope is back. Review it, then share when you're
-            ready.
-          </p>
-        )}
-        <ol aria-label="Your progress" className="mb-9 flex gap-2">
-          {["Choose a theme", "Share your hope", "Watch it grow"].map(
-            (label, index) => (
-              <li key={label} className="flex-1">
-                <div
-                  className={`mb-2 h-0.5 rounded-full ${index <= step ? "bg-primary" : "bg-border"}`}
-                />
-                <span
-                  className={`text-[10px] ${index === step ? "text-foreground" : "text-foreground/45"}`}
+          <fieldset>
+            <legend className="sr-only">Choose a theme</legend>
+            <div className="grid grid-cols-2 gap-2.5">
+              {themes.map((item) => (
+                <label
+                  key={item.id}
+                  className={`join-theme ${theme === item.id ? "is-selected" : ""}`}
                 >
-                  {index + 1}. {label}
-                </span>
-              </li>
-            ),
-          )}
-        </ol>
-        {step === 0 ? (
-          <div className="soft-in">
-            <h2 className="mb-2 text-3xl">What matters to you?</h2>
-            <p className="mb-6 text-sm text-foreground/60">
-              Choose a branch for your hope.
-            </p>
-            <fieldset>
-              <legend className="sr-only">Choose a theme</legend>
-              <div className="grid grid-cols-2 gap-3">
-                {themes.map((item) => (
-                  <label
-                    key={item.id}
-                    className={`relative flex min-h-32 cursor-pointer flex-col justify-between rounded-2xl p-4 transition-all ${theme === item.id ? "bg-accent shadow-sm" : "bg-muted hover:bg-foreground/10"}`}
-                  >
-                    <input
-                      className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-                      type="radio"
-                      name="theme"
-                      checked={theme === item.id}
-                      onChange={() => {
-                        setTheme(item.id);
-                        key.current = null;
-                      }}
-                    />
-                    <span className="flex justify-between">
-                      <ThemeIcon theme={item.id} size={23} />
-                      {theme === item.id ? (
-                        <Check size={16} />
-                      ) : (
-                        <span className="h-4 w-4 rounded-full bg-card" />
-                      )}
-                    </span>
-                    <span className="mt-4 text-xs leading-relaxed peer-focus-visible:underline">
-                      {item.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <Button onClick={() => setStep(1)} className="mt-7 w-full">
-              Continue <ArrowRight size={16} />
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="soft-in space-y-5">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-xs">
-                <ThemeIcon theme={theme} size={15} />
-                {themeFor(theme).short}
-              </span>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setStep(0)}
-                className="min-h-11 text-xs underline underline-offset-4"
-              >
-                Change theme
-              </button>
-            </div>
-            <div>
-              <h2 className="mb-3 text-3xl">
-                <label htmlFor="aspiration">
-                  What is your hope for the city?
+                  <input
+                    className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    type="radio"
+                    name="theme"
+                    checked={theme === item.id}
+                    onChange={() => {
+                      setTheme(item.id);
+                      key.current = null;
+                    }}
+                  />
+                  <ThemeIcon theme={item.id} size={21} />
+                  <span className="flex-1 text-xs leading-5 peer-focus-visible:underline">
+                    {item.label}
+                  </span>
+                  {theme === item.id && (
+                    <Check size={14} className="shrink-0" />
+                  )}
                 </label>
-              </h2>
-              <p className="mb-5 text-sm text-foreground/60">
-                One sentence can be the start of something beautiful.
-              </p>
-              <textarea
-                id="aspiration"
-                required
-                minLength={3}
-                maxLength={200}
-                rows={5}
-                value={aspiration}
-                disabled={busy}
-                onChange={(event) => edit(event.target.value)}
-                placeholder="I hope our city…"
-                aria-describedby="aspiration-help"
-                className="w-full resize-none rounded-2xl bg-muted p-5 text-base leading-relaxed placeholder:text-foreground/35 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
-              />
-              <div
-                id="aspiration-help"
-                className="mt-2 flex justify-between gap-4 text-[10px] text-foreground/55"
-              >
-                <span>
-                  Keep names, contact details and links out of your hope.
-                </span>
-                <span className="shrink-0">{aspiration.length} / 200</span>
-              </div>
+              ))}
             </div>
+          </fieldset>
+          <Button onClick={() => setStep(1)} className="mt-5 w-full">
+            Continue
+            <ArrowRight size={16} />
+          </Button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="soft-in space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 rounded-full bg-muted px-3 py-2 text-[10px]">
+              <ThemeIcon theme={theme} size={13} />
+              {themeFor(theme).short}
+            </span>
             <button
               type="button"
               disabled={busy}
-              onClick={() => edit(themeFor(theme).prompt)}
-              className="flex min-h-11 w-full items-start gap-3 rounded-2xl bg-muted px-4 py-3 text-left text-xs leading-relaxed text-foreground/65"
+              onClick={() => setStep(0)}
+              className="min-h-9 text-[11px] text-foreground/60"
             >
-              <Sparkles size={16} className="mt-0.5 shrink-0" />
-              <span>
-                Need a little inspiration?
-                <span className="mt-1 block text-foreground">
-                  {themeFor(theme).prompt}
-                </span>
-              </span>
+              Change theme
             </button>
-            <label className="flex min-h-11 items-start gap-3 text-xs leading-relaxed">
-              <input
-                type="checkbox"
-                required
-                checked={consent}
-                disabled={busy}
-                onChange={(event) => setConsent(event.target.checked)}
-                className="mt-1 h-4 w-4 shrink-0 accent-primary"
-              />
-              <span>
-                I agree that my approved, anonymous leaf can appear on the
-                shared tree, a public keepsake and collective reflections. My
-                original words may be kept privately for reception staff to
-                review, with contact details redacted.{" "}
-                <Link href="/privacy" className="underline underline-offset-2">
-                  How it works
-                </Link>
-              </span>
-            </label>
-            <p className="text-[10px] leading-relaxed text-foreground/50">
-              When interpretation is enabled, your words are sent to OpenAI for
-              interpretation and safety checks. If unavailable, a curated leaf
-              is chosen using your theme and keywords. Only your approved leaf
-              is public.
+          </div>
+          <h1 className="text-2xl">Share a little hope.</h1>
+          <label htmlFor="aspiration" className="block text-xs">
+            What is your hope for the city?
+          </label>
+          <textarea
+            id="aspiration"
+            required
+            minLength={3}
+            maxLength={200}
+            rows={3}
+            value={aspiration}
+            disabled={busy}
+            onChange={(event) => edit(event.target.value)}
+            placeholder="A hope, a thought, or something you'd love to see…"
+            aria-describedby="aspiration-help"
+            className="join-textarea"
+          />
+          <div
+            id="aspiration-help"
+            className="flex justify-between gap-3 text-[9px] text-foreground/50"
+          >
+            <span>Leave out names, contact details and links.</span>
+            <span className="shrink-0">{aspiration.length} / 200</span>
+          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => edit(themeFor(theme).prompt)}
+            className="inline-flex min-h-8 items-center gap-2 text-[11px] text-foreground/60"
+          >
+            <Sparkles size={13} />
+            Try an example
+          </button>
+          <label className="flex items-start gap-3 text-[11px] leading-5">
+            <input
+              type="checkbox"
+              required
+              checked={consent}
+              disabled={busy}
+              onChange={(event) => setConsent(event.target.checked)}
+              className="mt-1 h-4 w-4 shrink-0 accent-primary"
+            />
+            <span>
+              I agree to share my anonymous leaf publicly and let staff
+              privately review my note.
+            </span>
+          </label>
+          <details className="join-privacy">
+            <summary>Privacy &amp; how this works</summary>
+            <p>
+              No account is needed. Only your approved leaf is public; your note
+              and personal reply are not shown on the shared tree. When enabled,
+              OpenAI interprets your note and checks it before publication.
+              Otherwise, a matching offline reply and curated leaf are used.
+              Your note and reply are saved privately with encryption for safe
+              retries. This tab keeps your unfinished note and reply so a
+              refresh can recover them.{" "}
+              <Link href="/privacy" className="underline">
+                Read the participation policy.
+              </Link>
             </p>
-            {error && (
-              <p
-                role="alert"
-                className="rounded-lg bg-red-50 bg-red-50 p-3 text-xs leading-relaxed text-red-800"
-              >
-                {error}
-              </p>
-            )}
-            <Button
-              type="submit"
-              disabled={
-                busy ||
-                !consent ||
-                aspiration.trim().length < 3 ||
-                !online ||
-                paused
-              }
-              className="w-full"
-              size="lg"
+          </details>
+          {error && (
+            <p
+              role="alert"
+              className="rounded-xl bg-red-50 p-3 text-xs leading-5 text-red-800"
             >
-              {busy ? (
-                <>
-                  <LoaderCircle size={18} className="orbit" />
-                  Finding your branch…
-                </>
-              ) : (
-                <>
-                  Grow my leaf <Sprout size={18} />
-                </>
-              )}
-            </Button>
-            {busy && (
-              <p
-                role="status"
-                className="text-center text-xs text-foreground/60"
-              >
-                Reflecting on your hope and making it safe to share.
-              </p>
+              {error}
+            </p>
+          )}
+          <Button
+            type="submit"
+            disabled={
+              busy ||
+              !consent ||
+              aspiration.trim().length < 3 ||
+              !online ||
+              paused
+            }
+            className="w-full"
+          >
+            {busy ? (
+              <>
+                <LoaderCircle size={16} className="orbit" />
+                Finding your branch…
+              </>
+            ) : (
+              <>
+                Grow my leaf
+                <Sprout size={16} />
+              </>
             )}
-          </form>
-        )}
-      </section>
-    </div>
+          </Button>
+          {busy && (
+            <p
+              role="status"
+              className="text-center text-[10px] text-foreground/55"
+            >
+              Reflecting on your note and making room on the tree.
+            </p>
+          )}
+        </form>
+      )}
+    </section>
   );
 }

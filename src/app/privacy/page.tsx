@@ -30,14 +30,16 @@ export default function PrivacyPage() {
               What happens to your words
             </h2>
             <p>
-              When interpretation is enabled, your aspiration is sent to OpenAI for safety
-              checks and interpretation, with response storage disabled in our
-              generation requests. OpenAI processes that request under its own
-              data policies. In offline mode we use local keyword matching and a
-              curated sentence instead. With the consent you give before
-              submitting, your original words are retained privately for staff
-              review. Email addresses, phone-like numbers and links are redacted
-              before the message is encrypted. Only the approved leaf is public.
+              When interpretation is enabled, your aspiration is sent to OpenAI
+              for safety checks and interpretation, with response storage
+              disabled in our generation requests. OpenAI processes that request
+              under its own data policies. In offline mode we use local keyword
+              matching and a curated sentence instead. With the consent you give
+              before submitting, your original words are retained privately for
+              staff review. Email addresses, phone-like numbers and links are
+              redacted before the message is encrypted. Only the approved leaf
+              is public. A personal reply to your note is stored privately for
+              safe retries; it is never included in the public tree or keepsake.
             </p>
           </section>
           <section>
@@ -52,9 +54,11 @@ export default function PrivacyPage() {
               anonymous browser cookie helps limit repeat submissions. Staff
               sign-in uses a separate cookie that expires after eight hours. The
               display caches approved leaves on its browser for up to one day to
-              recover from outages. An unfinished form is kept in this browser
-              tab's session storage so a refresh does not lose your draft. Staff
-              can delete private words in the console; doing so also hides the
+              recover from outages. Your private reply and original note are
+              also kept in this browser tab until you start another hope or
+              close the tab. An unfinished form is kept in this browser tab's
+              session storage so a refresh does not lose your draft. Staff can
+              delete private words in the console; doing so also hides the
               linked public leaf. Older contributions created before private
               history was enabled do not have recoverable original words.
             </p>

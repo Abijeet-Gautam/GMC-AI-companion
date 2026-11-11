@@ -17,6 +17,7 @@ export type SceneController = {
     activeId?: string,
     arrivalId?: string,
     count?: number,
+    arrivals?: readonly string[],
   ): void;
   configure(settings: TreeSettings): void;
   breeze(): void;
@@ -47,6 +48,7 @@ export function createTreeScene(
   let leaves: Leaf[] = [],
     activeId: string | undefined,
     arrivalId: string | undefined,
+    arrivalIds: readonly string[] = [],
     count = 0;
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const renderer = new THREE.WebGLRenderer({
@@ -268,7 +270,7 @@ export function createTreeScene(
     model = replacement;
     settings = next;
     scene.add(model.group);
-    model.setContributions(leaves, count, activeId, undefined, false);
+    model.setContributions(leaves, count, activeId, arrivalIds, false);
     model.step(performance.now(), 1, true);
     garden.dispose();
     garden = createTreeEnvironment(scene, settings, isLow());
@@ -283,12 +285,20 @@ export function createTreeScene(
     nextActive?: string,
     nextArrival?: string,
     total = nextLeaves.length,
+    arrivals: readonly string[] = [],
   ) {
     leaves = nextLeaves;
     count = Math.max(total, nextLeaves.length);
     activeId = nextActive;
     arrivalId = nextArrival;
-    model.setContributions(leaves, count, activeId, arrivalId, !first);
+    arrivalIds = arrivals;
+    model.setContributions(
+      leaves,
+      count,
+      activeId,
+      arrivals.length ? arrivals : arrivalId,
+      !first,
+    );
     first = false;
     dirty = true;
   }
@@ -424,6 +434,7 @@ export function createTreeScene(
     breeze() {
       gustStarted = performance.now();
       dirty = true;
+      render(gustStarted, true);
     },
     configure,
     capture,

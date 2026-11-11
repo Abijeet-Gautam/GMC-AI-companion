@@ -53,7 +53,7 @@ The live renderer draws individual contribution leaves, capped at 2,400 in low q
 
 ## Enable OpenAI
 
-Set `OPENAI_API_KEY` in `.env.local`, leave `AI_MODE=auto`, and restart. `OPENAI_MODEL` defaults to `gpt-4o-mini` and can be changed to a model supporting Responses structured output.
+Set `OPENAI_API_KEY` in `.env.local`, leave `AI_MODE=auto`, and restart. `OPENAI_MODEL` defaults to `gpt-6-luna` and can be changed to a model supporting Responses structured output.
 
 Free text passes local checks, `omni-moderation-latest`, structured generation, schema validation and final output moderation before persistence. Keys stay server-side. Generation requests use `store: false`.
 

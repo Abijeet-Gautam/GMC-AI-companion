@@ -8,8 +8,13 @@ import {
   getTreeSettings,
   recordSubmission,
   rejectedSubmission,
+  replyByKey,
 } from "@/server/db";
-import { createLeaf, refreshReflection } from "@/server/services/ai";
+import {
+  createLeaf,
+  offlineReply,
+  refreshReflection,
+} from "@/server/services/ai";
 import { visitor } from "@/server/auth";
 import {
   AppError,
@@ -19,14 +24,20 @@ import {
   noStore,
 } from "@/server/http";
 import { after } from "next/server";
-import type { Leaf } from "@/lib/catalog";
+import type { ContributionReceipt } from "@/lib/catalog";
 export const runtime = "nodejs";
 const globalFlights = globalThis as unknown as {
-  gmcFlights?: Map<string, { hash: string; promise: Promise<Leaf> }>;
+  gmcFlights?: Map<
+    string,
+    { hash: string; promise: Promise<ContributionReceipt> }
+  >;
 };
 const flights = (globalFlights.gmcFlights ??= new Map());
 async function processLeaf(input: ContributionInput, hash: string) {
-  const generated = await createLeaf(input.aspiration, input.theme);
+  const { visitor_reply, ...generated } = await createLeaf(
+    input.aspiration,
+    input.theme,
+  );
   const record = insertLeaf(
     input.idempotencyKey,
     hash,
@@ -36,11 +47,16 @@ async function processLeaf(input: ContributionInput, hash: string) {
       created_at: new Date().toISOString(),
       is_demo: false,
     },
-    input,
+    { ...input, reply: visitor_reply },
   );
   if (record.status !== "approved")
     throw new AppError("This leaf has been removed from the public tree.", 410);
-  return record.leaf;
+  return {
+    leaf: record.leaf,
+    reply: replyByKey(input.idempotencyKey) || visitor_reply,
+    reply_mode: record.leaf.mode,
+    mode: record.leaf.mode,
+  };
 }
 export async function POST(request: Request) {
   let historyInput: ContributionInput | undefined;
@@ -85,7 +101,14 @@ export async function POST(request: Request) {
           "This leaf has been removed from the public tree.",
           410,
         );
-      return respond({ leaf: existing.leaf, mode: existing.leaf.mode });
+      const savedReply = replyByKey(input.idempotencyKey);
+      return respond({
+        leaf: existing.leaf,
+        reply:
+          savedReply || offlineReply(input.aspiration, existing.leaf.category),
+        reply_mode: savedReply ? existing.leaf.mode : "offline",
+        mode: existing.leaf.mode,
+      });
     }
     const inflight = flights.get(input.idempotencyKey);
     if (inflight) {
@@ -95,8 +118,7 @@ export async function POST(request: Request) {
           409,
           "KEY_CONFLICT",
         );
-      const leaf = await inflight.promise;
-      return respond({ leaf, mode: leaf.mode });
+      return respond(await inflight.promise);
     }
     const rejected = rejectedSubmission(input.idempotencyKey);
     if (rejected)
@@ -140,11 +162,11 @@ export async function POST(request: Request) {
     const promise = processLeaf(input, hash);
     flights.set(input.idempotencyKey, { hash, promise });
     try {
-      const leaf = await promise;
+      const receipt = await promise;
       after(async () => {
         await refreshReflection();
       });
-      return respond({ leaf, mode: leaf.mode }, 201);
+      return respond(receipt, 201);
     } finally {
       flights.delete(input.idempotencyKey);
     }

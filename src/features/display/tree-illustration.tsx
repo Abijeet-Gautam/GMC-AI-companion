@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { themes, type Leaf } from "@/lib/catalog";
 import { defaultTreeSettings, type TreeSettings } from "@/lib/tree-settings";
 import { treeGrowth } from "@/lib/tree-growth";
@@ -39,6 +39,7 @@ export function TreeIllustration({
   leaves = [],
   activeId,
   arrivalId,
+  arrivalIds = [],
   onSelect,
   illustrative = false,
   className = "",
@@ -48,6 +49,7 @@ export function TreeIllustration({
   leaves?: Leaf[];
   activeId?: string;
   arrivalId?: string;
+  arrivalIds?: readonly string[];
   onSelect?: (leaf: Leaf) => void;
   illustrative?: boolean;
   className?: string;
@@ -60,8 +62,9 @@ export function TreeIllustration({
       settings.growthMode === "manual"
         ? settings.age
         : 0.3 + (0.7 * (growth.progress - 0.38)) / 0.62;
-  const arriving = leaves.find((leaf) => leaf.id === arrivalId);
-  const destination = arriving ? leafPosition(arriving) : null;
+  const arrivals = leaves.filter(
+    (leaf) => arrivalIds.includes(leaf.id) || leaf.id === arrivalId,
+  );
   return (
     <div
       className={`tree-stage ${className}`}
@@ -210,29 +213,9 @@ export function TreeIllustration({
                 </g>
               );
             })}
-            {arriving && destination && (
-              <g
-                key={arriving.id}
-                className="arrival-flight"
-                aria-hidden="true"
-                pointerEvents="none"
-              >
-                <g>
-                  <path
-                    d="M0 8C-14-2-16-18 0-28C14-18 13-3 0 8Z"
-                    fill={themes[destination.index].color}
-                  />
-                  <animateMotion
-                    path={`M300 555 Q${destination.x < 300 ? 130 : 470} 360 ${destination.x} ${destination.y}`}
-                    dur="1.2s"
-                    fill="freeze"
-                    calcMode="spline"
-                    keyTimes="0;1"
-                    keySplines=".2 .6 .4 1"
-                  />
-                </g>
-              </g>
-            )}
+            {arrivals.map((leaf, index) => (
+              <ArrivalFlight key={leaf.id} leaf={leaf} index={index} />
+            ))}
           </g>
         </g>
         <ellipse
@@ -245,5 +228,43 @@ export function TreeIllustration({
         />
       </svg>
     </div>
+  );
+}
+
+function ArrivalFlight({ leaf, index }: { leaf: Leaf; index: number }) {
+  const motion = useRef<SVGAnimateMotionElement>(null);
+  const destination = leafPosition(leaf),
+    delay = (index % 8) * 0.08;
+  useEffect(() => {
+    try {
+      motion.current?.beginElementAt(delay);
+    } catch {
+      /* The settled leaf remains available without SMIL. */
+    }
+  }, [delay]);
+  return (
+    <g
+      className="arrival-flight"
+      aria-hidden="true"
+      pointerEvents="none"
+      style={{ animationDelay: `${delay}s` }}
+    >
+      <g>
+        <path
+          d="M0 8C-14-2-16-18 0-28C14-18 13-3 0 8Z"
+          fill={themes[destination.index].color}
+        />
+        <animateMotion
+          ref={motion}
+          begin="indefinite"
+          path={`M300 555 Q${destination.x < 300 ? 130 : 470} 360 ${destination.x} ${destination.y}`}
+          dur="2s"
+          fill="freeze"
+          calcMode="spline"
+          keyTimes="0;1"
+          keySplines=".2 .6 .4 1"
+        />
+      </g>
+    </g>
   );
 }

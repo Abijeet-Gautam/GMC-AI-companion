@@ -38,7 +38,7 @@ test("mobile visitor grows a leaf, kiosk receives it, keepsake downloads and cha
   ).toBeVisible();
   await phone.getByRole("link", { name: "Explore the chambers" }).click();
   await expect(
-    phone.getByRole("heading", { name: "Economy of Tomorrow" }),
+    phone.getByRole("heading", { name: "8 Business Sectors", exact: true }),
   ).toBeVisible();
   expect(
     await phone.evaluate(

@@ -49,6 +49,15 @@ db.exec(`CREATE TABLE IF NOT EXISTS visitor_submissions (
  reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS visitor_submissions_order ON visitor_submissions(created_at DESC,id DESC);`);
+if (
+  !db
+    .prepare("PRAGMA table_info(visitor_submissions)")
+    .all()
+    .some((row) => row.name === "private_reply")
+)
+  db.exec(
+    "ALTER TABLE visitor_submissions ADD COLUMN private_reply TEXT NOT NULL DEFAULT ''",
+  );
 const columns = db
   .prepare("PRAGMA table_info(approved_leaves)")
   .all()
@@ -155,7 +164,12 @@ export function insertLeaf(
   key: string,
   hash: string,
   leaf: Leaf,
-  original?: { idempotencyKey: string; aspiration: string; theme: string },
+  original?: {
+    idempotencyKey: string;
+    aspiration: string;
+    theme: string;
+    reply?: string;
+  },
 ) {
   return transaction(() => {
     const result = db
@@ -175,7 +189,8 @@ export function insertLeaf(
         hash,
       );
     if (result.changes) {
-      if (original) recordSubmission(original, "approved", leaf.id);
+      if (original)
+        recordSubmission(original, "approved", leaf.id, "", original.reply);
       changed();
       recordMetric("accepted");
     }
@@ -322,9 +337,10 @@ export function recordSubmission(
   outcome: "approved" | "rejected",
   leafId?: string,
   reason = "",
+  reply = "",
 ) {
   db.prepare(
-    "INSERT OR IGNORE INTO visitor_submissions(id,idempotency_key,leaf_id,private_message,selected_theme,outcome,reason,created_at) VALUES(?,?,?,?,?,?,?,?)",
+    "INSERT OR IGNORE INTO visitor_submissions(id,idempotency_key,leaf_id,private_message,selected_theme,outcome,reason,created_at,private_reply) VALUES(?,?,?,?,?,?,?,?,?)",
   ).run(
     randomUUID(),
     input.idempotencyKey,
@@ -334,7 +350,18 @@ export function recordSubmission(
     outcome,
     reason,
     new Date().toISOString(),
+    reply ? encryptMessage(reply) : "",
   );
+}
+export function replyByKey(key: string): string | null {
+  const row = db
+    .prepare(
+      "SELECT private_reply FROM visitor_submissions WHERE idempotency_key=? AND outcome='approved'",
+    )
+    .get(key);
+  if (!row?.private_reply) return null;
+  const reply = decryptMessage(String(row.private_reply));
+  return reply === "[Message unavailable]" ? null : reply;
 }
 export type PrivateSubmission = {
   id: string;

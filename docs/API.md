@@ -20,6 +20,8 @@ Success: 201 for a new leaf, 200 for replay. Mismatched content with an old key 
 ```json
 {
   "mode": "offline",
+  "reply_mode": "offline",
+  "reply": "Giving people space to learn can open possibilities far beyond the classroom. Your hope highlights how much a city's future depends on supporting its learners.",
   "leaf": {
     "id": "server-generated-uuid",
     "category": "education",
@@ -34,6 +36,10 @@ Success: 201 for a new leaf, 200 for replay. Mismatched content with an old key 
 ```
 
 `mode`: `openai` or `offline`. Errors `{error,code}`: 400 invalid input, 403 cross-origin, 409 key conflict, 410 hidden, 413 oversized, 415 wrong content type, 422 moderation rejection, 429 throttled, 500 server failure. Rate responses include `Retry-After` and `retryAfter` seconds.
+
+`reply` is a private response to the visitor's note, capped at 360 characters. `reply_mode` identifies its source independently of the public leaf (legacy retries can use an offline reply). The encrypted reply is replayed with the same submission key; it is never added to the public `leaf` object, public reads, streams or keepsakes. Only the browser tab retains the private note/reply receipt for refresh recovery.
+
+Chamber numbers now follow the supplied isometric blueprint: 1 Immersive Experience Room, 2 3D Model Mapping, 3 8 Business Sectors, 4 Life in Gelephu Mindfulness City. The theme-to-chamber connection is a recommendation, not an official plan.
 
 ## GET /api/leaves
 
@@ -50,6 +56,8 @@ Historical pagination: `?limit=60&cursor=...` returns `{leaves,nextCursor}`. Lim
 ## GET /api/tree/stream
 
 SSE event `tree` contains the default leaves snapshot. Event ID is the database revision. Initial connections and reconnections receive full capped snapshots. Clients deduplicate by leaf ID. Comment heartbeats keep connections active. Reconnection delay is two seconds; database revisions are checked every 750ms.
+
+The display drains new leaves in overlapping batches of up to eight every 350ms. Each leaf has its own flight clock and a stable branch anchor. Featured stories rotate separately, so a burst does not replace the text faster than it can be read. Hidden leaves are removed from both the pending queue and active flights.
 
 ## GET /api/tree/stats
 

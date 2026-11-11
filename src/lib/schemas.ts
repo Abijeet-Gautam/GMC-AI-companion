@@ -27,6 +27,7 @@ export const aiLeafSchema = z.object({
   safe: z.boolean(),
   category: themeSchema,
   leaf_message: z.string().trim().min(1).max(100),
+  visitor_reply: z.string().trim().min(20).max(360),
   chamber_id: z.number().int().min(1).max(4),
   confidence: z.number().min(0).max(1),
   moderation_flags: z.array(z.string().max(80)).max(10),

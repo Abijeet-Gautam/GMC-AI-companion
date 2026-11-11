@@ -20,6 +20,7 @@ export type GrowthMetrics = {
   progress: number;
   scale: number;
   phase: string;
+  arriving: number;
 };
 type Anchor = {
   center: THREE.Vector3;
@@ -273,7 +274,7 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
     scale = target.scale,
     currentCards: Card[] = [],
     activeId: string | undefined,
-    lastArrival: string | undefined,
+    lastArrivals = new Set<string>(),
     dirty = true;
   const metrics: GrowthMetrics = {
     count: 0,
@@ -282,23 +283,29 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
     progress,
     scale,
     phase: target.phase,
+    arriving: 0,
   };
   function setContributions(
     leaves: Leaf[],
     count: number,
     selected?: string,
-    arrival?: string,
+    arrival?: string | readonly string[],
     animate = true,
   ) {
     const ordered = [...leaves].sort(
       (a, b) =>
         a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id),
     );
+    const arrivals = new Set(
+      typeof arrival === "string" ? [arrival] : arrival || [],
+    );
+    const freshArrivals = [...arrivals].filter((id) => !lastArrivals.has(id));
     const next = treeGrowth(count, settings),
       changed =
         count !== target.count ||
         selected !== activeId ||
-        arrival !== lastArrival ||
+        freshArrivals.length > 0 ||
+        arrivals.size !== lastArrivals.size ||
         ordered.some((leaf) => !known.has(leaf.id)) ||
         ordered.length !== known.size;
     target = next;
@@ -311,6 +318,8 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
     const previous = new Map(
       currentCards.filter((card) => card.id).map((card) => [card.id, card]),
     );
+    const previousCards = currentCards,
+      launchedAt = performance.now();
     const total =
       settings.growthMode === "contributions"
         ? Math.min(capacity, Math.max(ordered.length, count))
@@ -330,6 +339,25 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
     for (let i = 0; i < total; i++) {
       const leaf = i >= historical ? visible[i - historical] : undefined,
         seed = leaf ? hashLeaf(leaf.id) : settings.seed + i * 11;
+      const reusable = leaf
+        ? previous.get(leaf.id)
+        : previousCards[i]?.id
+          ? undefined
+          : previousCards[i];
+      if (reusable) {
+        const card = { ...reusable };
+        if (
+          leaf &&
+          arrivals.has(leaf.id) &&
+          !lastArrivals.has(leaf.id) &&
+          animate
+        )
+          card.arrival =
+            launchedAt + Math.max(0, freshArrivals.indexOf(leaf.id)) * 80;
+        currentCards.push(card);
+        if (leaf) known.set(leaf.id, new THREE.Vector3());
+        continue;
+      }
       // A leaf keeps the branch it could reach when it arrived. Growing tips
       // extend with it instead of moving old leaves to unrelated new branches.
       const ordinal = leaf
@@ -401,12 +429,18 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
           );
         card.rotation.z += seeded(seed + 9) * Math.PI * 2;
       }
-      if (leaf?.id === arrival && arrival !== lastArrival && animate)
-        card.arrival = performance.now();
+      if (
+        leaf &&
+        arrivals.has(leaf.id) &&
+        !lastArrivals.has(leaf.id) &&
+        animate
+      )
+        card.arrival =
+          launchedAt + Math.max(0, freshArrivals.indexOf(leaf.id)) * 80;
       currentCards.push(card);
       if (leaf) known.set(leaf.id, new THREE.Vector3());
     }
-    lastArrival = arrival;
+    lastArrivals = arrivals;
     foliage.count = total;
     dirty = true;
     metrics.count = count;
@@ -427,11 +461,17 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
     scale = reduced
       ? target.scale
       : THREE.MathUtils.damp(scale, target.scale, 4, delta);
-    const activeArrival = currentCards.some(
-        (card) => card.arrival && now - card.arrival < 1200,
-      ),
+    const arrivalCount = reduced
+        ? 0
+        : currentCards.reduce(
+            (sum, card) =>
+              sum + Number(Boolean(card.arrival && now - card.arrival < 2000)),
+            0,
+          ),
       wind = !reduced && settings.wind > 0;
-    if (!dirty && !moving && !activeArrival && !wind) return false;
+    if (metrics.arriving !== arrivalCount) dirty = true;
+    metrics.arriving = arrivalCount;
+    if (!dirty && !moving && !arrivalCount && !wind) return false;
     if (
       Math.abs(progress - lastProgress) > 0.00001 &&
       positions &&
@@ -472,15 +512,40 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
           card.anchor.phase,
         ),
       );
-      let pop = 1;
-      if (card.arrival && now - card.arrival < 1200) {
-        const t = Math.max(0, (now - card.arrival) / 1200),
-          ease = 1 - (1 - t) ** 3;
-        dummy.position.multiplyScalar(ease);
-        dummy.position.x += Math.sin(t * Math.PI) * 0.5;
-        pop = 0.2 + ease * 0.8;
+      let pop = 1,
+        turn = 0;
+      if (!reduced && card.arrival && now - card.arrival < 2000) {
+        const t = THREE.MathUtils.clamp((now - card.arrival) / 2000, 0, 1),
+          ease = t * t * (3 - 2 * t),
+          seed = hashLeaf(card.id || String(i)),
+          end = dummy.position.clone(),
+          start = new THREE.Vector3(
+            (seeded(seed + 21) - 0.5) * matureHeight * 1.3,
+            matureHeight * 0.04,
+            matureHeight * 0.55,
+          ),
+          control = end
+            .clone()
+            .add(
+              new THREE.Vector3(
+                (seeded(seed + 22) - 0.5) * matureHeight * 0.85,
+                matureHeight * 0.35,
+                matureHeight * 0.3,
+              ),
+            );
+        dummy.position
+          .copy(start)
+          .multiplyScalar((1 - ease) ** 2)
+          .addScaledVector(control, 2 * ease * (1 - ease))
+          .addScaledVector(end, ease * ease);
+        pop =
+          now < card.arrival
+            ? 0
+            : 0.25 + 0.75 * (1 - (1 - t) ** 3) + Math.sin(t * Math.PI) * 0.2;
+        turn = (1 - ease) * Math.PI * 1.6;
       }
       dummy.rotation.copy(card.rotation);
+      dummy.rotation.z += turn;
       if (wind) {
         dummy.rotation.z +=
           Math.sin(now * 0.003 * settings.windSpeed + i) *
@@ -508,7 +573,10 @@ export function createTreeModel(settings: TreeSettings, low: boolean) {
       foliage.setMatrixAt(i, dummy.matrix);
       if (dirty) foliage.setColorAt(i, card.color);
       if (card.id) {
-        if (settings.growthMode === "manual" && k < 0.01)
+        if (
+          (!reduced && card.arrival > now) ||
+          (settings.growthMode === "manual" && k < 0.01)
+        )
           known.get(card.id)!.set(NaN, NaN, NaN);
         else known.get(card.id)!.copy(dummy.position);
       }

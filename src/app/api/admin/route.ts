@@ -7,7 +7,7 @@ import {
   seedDemo,
   clearDemo,
 } from "@/server/db";
-import { refreshReflection, aiMode } from "@/server/services/ai";
+import { refreshReflection, aiMode, aiModel } from "@/server/services/ai";
 import { requireAdmin } from "@/server/auth";
 import {
   readJson,
@@ -26,7 +26,7 @@ export function GET(request: Request) {
         leaves: adminLeaves(),
         stats: treeStats(),
         ai: aiMode(),
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        model: aiModel(),
         metrics: Object.fromEntries(
           db
             .prepare("SELECT key,count FROM metrics")

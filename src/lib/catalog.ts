@@ -6,7 +6,7 @@ export const themes = [
     color: "#83BD83",
     chamber: 2,
     message: "May nature and green spaces flourish in our city.",
-    prompt: "I hope GMC has green spaces where people and nature thrive.",
+    prompt: "I hope our city has green spaces where people and nature thrive.",
   },
   {
     id: "innovation",
@@ -41,7 +41,7 @@ export const themes = [
     label: "Wellbeing & mindfulness",
     short: "Wellbeing",
     color: "#BCA9DD",
-    chamber: 1,
+    chamber: 4,
     message: "May our city nurture mindful and healthy lives.",
     prompt: "I hope our city makes space for peaceful, healthy, mindful lives.",
   },
@@ -57,42 +57,68 @@ export const themes = [
   },
 ] as const;
 export type Theme = (typeof themes)[number]["id"];
+// Chamber names and relative locations follow the visitor-supplied isometric
+// experience-centre plan. Theme-to-chamber recommendations are our interpretation.
 export const chambers = {
-  1: "The Vision",
-  2: "Urban Blueprint",
-  3: "Economy of Tomorrow",
-  4: "My City, My Future",
+  1: "Immersive Experience Room",
+  2: "3D Model Mapping",
+  3: "8 Business Sectors",
+  4: "Life in Gelephu Mindfulness City",
 } as const;
+export type ChamberId = keyof typeof chambers;
 export const chamberDetails = {
   1: {
-    eyebrow: "Begin with purpose",
+    eyebrow: "Begin the experience",
+    short: "Immersive room",
     description:
-      "Reflect on the vision behind Gelephu Mindfulness City and the values you would like its future to carry.",
+      "An immersive introduction to the city. A place to begin exploring its wider story.",
     reason:
-      "Your hope connects with the values and vision that shape the city's future.",
+      "Your hope connects with the values and shared vision behind the city.",
+    location: "Beside reception, at the front of the exhibition.",
+    direction:
+      "From reception, look for the entrance marked Chamber 1 beside the immersive room.",
   },
   2: {
-    eyebrow: "Imagine a place to thrive",
+    eyebrow: "See the city take shape",
+    short: "Model mapping",
     description:
-      "Explore the idea of a city that makes room for people and nature. Consider how the places around us can support a better everyday life.",
+      "The city model and mapping area, where you can explore its spatial layout.",
     reason:
-      "Your hope connects with the way a city can make space for people and nature.",
+      "Your hope connects with how places, nature and everyday life fit together.",
+    location: "The central model area, beyond the immersive room.",
+    direction:
+      "Continue into the exhibition beyond Chamber 1 and follow the signs for Chamber 2, the model mapping area.",
   },
   3: {
-    eyebrow: "Explore what comes next",
+    eyebrow: "Explore opportunity",
+    short: "Business sectors",
     description:
-      "Think about learning, innovation and the possibilities of tomorrow. What opportunities would you like the next generation to have?",
+      "The eight business sectors exhibit. Explore the economic opportunities presented for the city.",
     reason:
-      "Your hope connects with learning, innovation and opportunities for tomorrow.",
+      "Your hope connects with skills, innovation and opportunities for meaningful work.",
+    location: "At the far end of the exhibition, past the central model area.",
+    direction:
+      "Continue past the model mapping area towards the far end and look for the Chamber 3 signs.",
   },
   4: {
-    eyebrow: "Find your place in the story",
+    eyebrow: "Imagine everyday life",
+    short: "Life in the city",
     description:
-      "Bring your own perspective to the city's future. Reflect on the everyday choices and shared hopes that help a community grow.",
+      "An exhibit about life in the city, shown along the landscaped rear side of the plan.",
     reason:
-      "Your hope connects with the part each of us can play in a shared future.",
+      "Your hope connects with the community and everyday life people imagine for the city.",
+    location:
+      "Along the rear exhibition area, near the assistant and postcard board.",
+    direction:
+      "Look for Chamber 4 along the rear exhibit area, near the assistant and postcard board shown in the plan.",
   },
 } as const;
+export type ContributionReceipt = {
+  leaf: Leaf;
+  reply: string;
+  reply_mode: "openai" | "offline";
+  mode: "openai" | "offline";
+};
 export type Leaf = {
   id: string;
   category: Theme;

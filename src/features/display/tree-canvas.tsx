@@ -11,6 +11,7 @@ export function TreeCanvas({
   leaves = [],
   activeId,
   arrivalId,
+  arrivalIds = [],
   onSelect,
   illustrative = false,
   className = "",
@@ -23,6 +24,7 @@ export function TreeCanvas({
   leaves?: Leaf[];
   activeId?: string;
   arrivalId?: string;
+  arrivalIds?: readonly string[];
   onSelect?: (leaf: Leaf) => void;
   illustrative?: boolean;
   className?: string;
@@ -41,10 +43,18 @@ export function TreeCanvas({
     leaves,
     activeId,
     arrivalId,
+    arrivalIds,
     settings,
     contributionCount,
   });
-  latest.current = { leaves, activeId, arrivalId, settings, contributionCount };
+  latest.current = {
+    leaves,
+    activeId,
+    arrivalId,
+    arrivalIds,
+    settings,
+    contributionCount,
+  };
   const [state, setState] = useState<"loading" | "3d" | "illustration">(
       "loading",
     ),
@@ -76,6 +86,7 @@ export function TreeCanvas({
         root.current.dataset.growthProgress = metrics.progress.toFixed(4);
         root.current.dataset.growthPhase = metrics.phase;
         root.current.dataset.growthScale = metrics.scale.toFixed(4);
+        root.current.dataset.activeArrivals = String(metrics.arriving);
       }
     };
     void import("./tree-scene")
@@ -101,6 +112,7 @@ export function TreeCanvas({
             latest.current.activeId,
             latest.current.arrivalId,
             latest.current.contributionCount,
+            latest.current.arrivalIds,
           );
           setState("3d");
         } catch {
@@ -129,8 +141,14 @@ export function TreeCanvas({
     }
   }, [appearance]);
   useEffect(() => {
-    controller.current?.update(leaves, activeId, arrivalId, contributionCount);
-  }, [leaves, activeId, arrivalId, contributionCount, state]);
+    controller.current?.update(
+      leaves,
+      activeId,
+      arrivalId,
+      contributionCount,
+      arrivalIds,
+    );
+  }, [leaves, activeId, arrivalId, arrivalIds, contributionCount, state]);
   return (
     <div
       ref={root}
@@ -184,6 +202,7 @@ export function TreeCanvas({
             leaves={leaves}
             activeId={activeId}
             arrivalId={arrivalId}
+            arrivalIds={arrivalIds}
             onSelect={onSelect}
             illustrative={illustrative}
             count={contributionCount}
@@ -198,7 +217,7 @@ export function TreeCanvas({
               key={leaf.id}
               type="button"
               data-leaf-id={leaf.id}
-              className={`tree-leaf tree-marker ${activeId === leaf.id ? "is-featured" : ""}`}
+              className={`tree-leaf tree-marker ${activeId === leaf.id ? "is-featured" : ""} ${arrivalIds.includes(leaf.id) ? "is-arriving" : ""}`}
               ref={(element) => {
                 if (element) markerElements.current.set(leaf.id, element);
                 else markerElements.current.delete(leaf.id);

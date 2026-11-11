@@ -174,7 +174,7 @@ test("visitor draft and retry key survive refresh and successful publication cle
     text,
   );
   await expect(
-    page.getByText("Your unfinished hope is back.", { exact: false }),
+    page.getByText("Your unfinished note is back.", { exact: false }),
   ).toBeVisible();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Grow my leaf" }).click();

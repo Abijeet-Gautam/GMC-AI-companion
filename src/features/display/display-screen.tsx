@@ -15,9 +15,10 @@ import {
   Minus,
   RotateCcw,
   Leaf as LeafIcon,
+  MapPin,
 } from "lucide-react";
 import { TreeCanvas } from "./tree-canvas";
-import { themes, themeFor, type Leaf } from "@/lib/catalog";
+import { themes, themeFor, chamberDetails, type Leaf } from "@/lib/catalog";
 import { useTree } from "@/hooks/use-tree";
 import { appUrl } from "@/lib/client";
 import { defaultTreeSettings, treePalettes } from "@/lib/tree-settings";
@@ -27,6 +28,7 @@ export function DisplayScreen() {
   const { tree, connection } = useTree({ cache: true });
   const scene = useRef<SceneController | null>(null);
   const [rotating, setRotating] = useState(true);
+  const [arrivalIds, setArrivalIds] = useState<string[]>([]);
   const settings = tree?.settings || defaultTreeSettings;
   const presentation = useMemo(
     () => ({ ...settings, autoRotate: rotating }),
@@ -44,7 +46,10 @@ export function DisplayScreen() {
     synced = useRef(false),
     seen = useRef(new Set<string>()),
     queue = useRef<Leaf[]>([]),
-    available = useRef(new Set<string>());
+    available = useRef(new Set<string>()),
+    flights = useRef(new Map<string, number>()),
+    stories = useRef<Leaf[]>([]),
+    lastStory = useRef(0);
   useEffect(() => {
     setJoinUrl(appUrl() + "/join");
     const changed = () => setFull(Boolean(document.fullscreenElement));
@@ -59,6 +64,9 @@ export function DisplayScreen() {
       if (connection === "live") synced.current = true;
       seen.current.clear();
       queue.current = [];
+      flights.current.clear();
+      stories.current = [];
+      setArrivalIds([]);
       setPending(0);
       tree.leaves.forEach((leaf) => seen.current.add(leaf.id));
       setLeaves(tree.leaves);
@@ -79,6 +87,11 @@ export function DisplayScreen() {
       ...incoming,
     ].slice(-120);
     setPending(queue.current.length);
+    for (const id of flights.current.keys())
+      if (!available.current.has(id)) flights.current.delete(id);
+    setArrivalIds((previous) =>
+      previous.filter((id) => available.current.has(id)),
+    );
     setLeaves((previous) =>
       previous.filter((leaf) => available.current.has(leaf.id)),
     );
@@ -91,17 +104,50 @@ export function DisplayScreen() {
   }, [tree, connection]);
   useEffect(() => {
     const interval = setInterval(() => {
-      const leaf = queue.current.shift();
-      if (!leaf) return;
-      setPending(queue.current.length);
-      if (!available.current.has(leaf.id)) return;
-      setLeaves((previous) =>
-        [leaf, ...previous.filter((item) => item.id !== leaf.id)].slice(0, 120),
+      const now = Date.now();
+      for (const [id, expires] of flights.current)
+        if (expires <= now || !available.current.has(id))
+          flights.current.delete(id);
+      const size = Math.min(
+        8,
+        Math.max(1, Math.ceil(queue.current.length / 4)),
       );
-      setFeatured(leaf);
-      setLastArrival(Date.now());
-      setShowReflection(false);
-    }, 1400);
+      const batch = queue.current
+        .splice(0, size)
+        .filter((leaf) => available.current.has(leaf.id));
+      if (batch.length) {
+        setPending(queue.current.length);
+        const ids = new Set(batch.map((leaf) => leaf.id));
+        setLeaves((previous) =>
+          [
+            ...batch.reverse(),
+            ...previous.filter((leaf) => !ids.has(leaf.id)),
+          ].slice(0, 120),
+        );
+        batch.forEach((leaf, index) =>
+          flights.current.set(leaf.id, now + 2400 + index * 80),
+        );
+        stories.current = [...stories.current, ...batch].slice(-12);
+        setLastArrival(now);
+        setShowReflection(false);
+      }
+      const ids = [...flights.current.keys()];
+      setArrivalIds((previous) =>
+        previous.length === ids.length &&
+        previous.every((id, i) => id === ids[i])
+          ? previous
+          : ids,
+      );
+      if (now - lastStory.current >= 4500) {
+        let next = stories.current.shift();
+        while (next && !available.current.has(next.id))
+          next = stories.current.shift();
+        if (next) {
+          setFeatured(next);
+          lastStory.current = now;
+        }
+      }
+    }, 350);
     const reflectionTimer = setInterval(
       () => setShowReflection((value) => !value),
       18000,
@@ -150,7 +196,7 @@ export function DisplayScreen() {
           contributionCount={Math.max(0, (tree?.total || 0) - pending)}
           settings={presentation}
           activeId={active?.id}
-          arrivalId={lastArrival ? featured?.id : undefined}
+          arrivalIds={arrivalIds}
           onSelect={setSelected}
           className="kiosk-tree"
           environment="garden"
@@ -216,6 +262,40 @@ export function DisplayScreen() {
               Every leaf is someone's hope. Find a story in the branches.
             </span>
           </motion.div>
+          <div className="kiosk-arrivals" aria-hidden="true">
+            <AnimatePresence>
+              {arrivalIds.length > 0 && (
+                <motion.div
+                  key="arrival-wave"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.35 }}
+                >
+                  <span className="arrival-dots">
+                    {arrivalIds.slice(0, 6).map((id) => (
+                      <motion.i
+                        key={id}
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        style={{
+                          background: themeFor(
+                            leaves.find((leaf) => leaf.id === id)?.category ||
+                              "nature",
+                          ).color,
+                        }}
+                      />
+                    ))}
+                  </span>
+                  <span>
+                    {arrivalIds.length === 1
+                      ? "A new hope is taking root"
+                      : `${arrivalIds.length} hopes are taking root together`}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <section
             className="kiosk-feature"
             aria-label="A hope from the tree"
@@ -277,6 +357,13 @@ export function DisplayScreen() {
                     ? `Leaf #${active.id.slice(0, 6)} · ${themeFor(active.category).short}`
                     : "Scan to grow a new leaf."}
                 </p>
+                {active && !reflection && (
+                  <p className="kiosk-chamber">
+                    <MapPin size={13} />
+                    Chamber {active.chamber_id} ·{" "}
+                    {chamberDetails[active.chamber_id].short}
+                  </p>
+                )}
               </motion.div>
             </AnimatePresence>
           </section>

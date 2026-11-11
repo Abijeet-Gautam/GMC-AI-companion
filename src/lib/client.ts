@@ -44,9 +44,21 @@ export async function api<T>(
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
-  const data = await response.json();
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch {
+    // Empty or non-JSON body (e.g. serverless function crashed, bad gateway,
+    // or missing environment variables on the deployed site).
+    throw new Error(
+      `The server returned an empty response (${response.status}). It may be missing required environment variables. Please try again or contact support.`,
+    );
+  }
   if (!response.ok)
-    throw new Error(data.error || "Something went wrong. Please try again.");
+    throw new Error(
+      (data as { error?: string } | null)?.error ||
+        "Something went wrong. Please try again.",
+    );
   if (schema) return schema.parse(data);
   return data as T;
 }

@@ -67,7 +67,7 @@ export function useTree({ cache = false }: { cache?: boolean } = {}) {
           Array.isArray(stored.leaves) &&
           Date.now() - Date.parse(stored.serverTime) < 86400000
         )
-          setTree(stored);
+          setTimeout(() => setTree(stored), 0);
       } catch {
         /* optional cache */
       }

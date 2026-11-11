@@ -42,7 +42,8 @@ export function DisplayScreen() {
     [full, setFull] = useState(false),
     [pending, setPending] = useState(0),
     [lastArrival, setLastArrival] = useState(0),
-    [showReflection, setShowReflection] = useState(false);
+    [showReflection, setShowReflection] = useState(false),
+    [reflectionVisible, setReflectionVisible] = useState(false);
   const initialized = useRef(false),
     synced = useRef(false),
     seen = useRef(new Set<string>()),
@@ -52,7 +53,7 @@ export function DisplayScreen() {
     stories = useRef<Leaf[]>([]),
     lastStory = useRef(0);
   useEffect(() => {
-    setJoinUrl(appUrl() + "/join");
+    setTimeout(() => setJoinUrl(appUrl() + "/join"), 0);
     const changed = () => setFull(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", changed);
     return () => document.removeEventListener("fullscreenchange", changed);
@@ -158,6 +159,16 @@ export function DisplayScreen() {
       clearInterval(reflectionTimer);
     };
   }, []);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setReflectionVisible(
+        Boolean(
+          showReflection && tree?.reflection && !selected && Date.now() - lastArrival > 6500,
+        ),
+      );
+    }, 1000);
+    return () => clearInterval(id);
+  }, [showReflection, tree?.reflection, selected, lastArrival]);
   async function toggleFullscreen() {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
@@ -171,7 +182,7 @@ export function DisplayScreen() {
       showReflection &&
       tree?.reflection &&
       !selected &&
-      Date.now() - lastArrival > 6500;
+      reflectionVisible;
   const palette = treePalettes[settings.palette];
   const contentKey = reflection
     ? `reflection-${tree?.reflection?.body}`

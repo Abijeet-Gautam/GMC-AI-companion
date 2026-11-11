@@ -47,14 +47,6 @@ export function TreeCanvas({
     settings,
     contributionCount,
   });
-  latest.current = {
-    leaves,
-    activeId,
-    arrivalId,
-    arrivalIds,
-    settings,
-    contributionCount,
-  };
   const [state, setState] = useState<"loading" | "3d" | "illustration">(
       "loading",
     ),
@@ -64,9 +56,10 @@ export function TreeCanvas({
   useEffect(() => {
     let cancelled = false,
       scene: SceneController | null = null;
-    setState("loading");
+    latest.current = { leaves, activeId, arrivalId, arrivalIds, settings, contributionCount };
+    setTimeout(() => setState("loading"), 0);
     if (settings.renderer === "illustration") {
-      setState("illustration");
+      setTimeout(() => setState("illustration"), 0);
       return;
     }
     const project = (items: ProjectedLeaf[], metrics?: GrowthMetrics) => {
@@ -137,7 +130,7 @@ export function TreeCanvas({
     } catch {
       controller.current?.dispose();
       controller.current = null;
-      setState("illustration");
+      setTimeout(() => setState("illustration"), 0);
     }
   }, [appearance]);
   useEffect(() => {

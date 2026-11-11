@@ -58,10 +58,14 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
         saved.aspiration.length <= 200 &&
         parsedTheme.success
       ) {
-        setAspiration(saved.aspiration);
-        setTheme(initialTheme || parsedTheme.data);
-        setStep(saved.aspiration ? 1 : 0);
-        setRecovered(Boolean(saved.aspiration));
+        const nextAspiration = saved.aspiration;
+        const nextTheme: Theme = initialTheme ?? parsedTheme.data ?? "nature";
+        setTimeout(() => {
+          setAspiration(nextAspiration);
+          setTheme(nextTheme);
+          setStep(saved.aspiration ? 1 : 0);
+          setRecovered(Boolean(saved.aspiration));
+        }, 0);
         // Never re-use the previous key when a theme shortcut changes intent.
         if (!initialTheme || initialTheme === parsedTheme.data)
           key.current = typeof saved.key === "string" ? saved.key : null;
@@ -104,7 +108,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     } catch {
       /* Storage is optional on private browsers. */
     }
-    setHydrated(true);
+    setTimeout(() => setHydrated(true), 0);
     const changed = () => setOnline(navigator.onLine);
     changed();
     window.addEventListener("online", changed);

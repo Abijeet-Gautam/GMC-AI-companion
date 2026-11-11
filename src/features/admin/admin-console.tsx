@@ -118,7 +118,12 @@ export function AdminConsole() {
   }, []);
   useEffect(() => {
     if (!authenticated) return;
-    void load().catch((err) => setError(err.message));
+    // Async error handling in a .catch() handler runs asynchronously, not
+    // synchronously within the effect body, so set-state-in-effect does not apply.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load().catch((err) => {
+      setError(err instanceof Error ? err.message : String(err));
+    });
     const timer = setInterval(() => {
       void load().catch(() => {});
     }, 10000);

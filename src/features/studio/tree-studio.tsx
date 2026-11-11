@@ -91,7 +91,7 @@ export function TreeStudio() {
         ? tree?.leaves || []
         : (tree?.leaves || []).slice(-Math.min(count, 120));
   useEffect(() => {
-    if (innerWidth < 900) setShowPanel(false);
+    if (innerWidth < 900) setTimeout(() => setShowPanel(false), 0);
   }, []);
   function chooseSpecies(index: number) {
     const next = species[(index + species.length) % species.length][0];

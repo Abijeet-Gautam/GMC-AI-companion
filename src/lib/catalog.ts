@@ -149,4 +149,11 @@ export type TreeSnapshot = {
   serverTime: string;
   settings: import("./tree-settings").TreeSettings;
 };
-export const themeFor = (id: Theme) => themes.find((theme) => theme.id === id)!;
+export const themeFor = (id: Theme): (typeof themes)[number] => {
+  const found = themes.find((theme) => theme.id === id);
+  if (!found)
+    throw new Error(
+      `Unknown theme "${id}". Available: ${themes.map((t) => t.id).join(", ")}`,
+    );
+  return found;
+};

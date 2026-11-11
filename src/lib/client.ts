@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export function uuid() {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -33,7 +35,11 @@ export async function fetchWithTimeout(
     parent?.removeEventListener("abort", abort);
   }
 }
-export async function api<T>(url: string, init?: RequestInit): Promise<T> {
+export async function api<T>(
+  url: string,
+  init?: RequestInit,
+  schema?: z.ZodType<T>,
+): Promise<T> {
   const response = await fetchWithTimeout(url, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
@@ -41,7 +47,8 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const data = await response.json();
   if (!response.ok)
     throw new Error(data.error || "Something went wrong. Please try again.");
-  return data;
+  if (schema) return schema.parse(data);
+  return data as T;
 }
 export function appUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(

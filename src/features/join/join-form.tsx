@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeIcon } from "@/components/theme-icon";
 import { LeafResult } from "@/features/leaf/leaf-result";
 import { uuid, api } from "@/lib/client";
-import { themeSchema } from "@/lib/schemas";
+import { themeSchema, contributionSchema } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { VisitorAccess } from "./visitor-access";
 export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
@@ -48,19 +48,20 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     try {
       const saved = JSON.parse(
         sessionStorage.getItem("gmc-hope-draft") || "null",
-      );
+      ) as { aspiration?: string; theme?: string; key?: string } | null;
+      const parsedTheme = themeSchema.safeParse(saved?.theme);
       if (
         saved &&
         typeof saved.aspiration === "string" &&
         saved.aspiration.length <= 200 &&
-        themeSchema.safeParse(saved.theme).success
+        parsedTheme.success
       ) {
         setAspiration(saved.aspiration);
-        setTheme(initialTheme || saved.theme);
+        setTheme(initialTheme || parsedTheme.data);
         setStep(saved.aspiration ? 1 : 0);
         setRecovered(Boolean(saved.aspiration));
         // Never re-use the previous key when a theme shortcut changes intent.
-        if (!initialTheme || initialTheme === saved.theme)
+        if (!initialTheme || initialTheme === parsedTheme.data)
           key.current = typeof saved.key === "string" ? saved.key : null;
       }
       const receipt = sessionStorage.getItem("gmc-hope-receipt");
@@ -73,7 +74,12 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             try {
               const cached = JSON.parse(
                 sessionStorage.getItem("gmc-hope-conversation") || "null",
-              );
+              ) as {
+                leafId?: string;
+                reply?: string;
+                mode?: string;
+                original?: string;
+              } | null;
               if (
                 cached?.leafId === data.leaf.id &&
                 typeof cached.reply === "string" &&
@@ -107,7 +113,10 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
         { cache: "no-store" },
       )
         .then((data) => setPaused(!data.settings.acceptingContributions))
-        .catch(() => {});
+        .catch((err) => {
+      // Settings poll is best-effort; retried every 15s, so a failure is safe to ignore.
+      void err;
+    });
     };
     checkSettings();
     const timer = setInterval(checkSettings, 15000);
@@ -161,15 +170,16 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
       /* Optional recovery. */
     }
     try {
+      const body = contributionSchema.parse({
+        aspiration,
+        theme,
+        consent,
+        idempotencyKey: key.current,
+        visitor_type: visitorType,
+      });
       const data = await api<ContributionReceipt>("/api/contributions", {
         method: "POST",
-        body: JSON.stringify({
-          aspiration,
-          theme,
-          consent,
-          idempotencyKey: key.current,
-          visitor_type: visitorType,
-        }),
+        body: JSON.stringify(body),
       });
       setLeaf(data.leaf);
       setReply(data.reply);
@@ -347,7 +357,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
                 <label
                   key={item.id}
                   className={cn(
-                    "relative flex cursor-pointer items-center gap-3 rounded-xl bg-card p-3 transition-colors border border-transparent",
+                    "relative flex cursor-pointer items-center gap-3 rounded-xl bg-card p-3 transition-colors border border-transparent focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary",
                     theme === item.id
                       ? "bg-accent border-accent/40"
                       : "hover:bg-muted hover:border-border",

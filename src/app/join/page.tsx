@@ -7,14 +7,14 @@ import { themeSchema } from "@/lib/schemas";
 export const metadata = {
   title: "Add your hope",
   description:
-    "Share a hope for Gelephu Mindfulness City and grow a leaf on the Living Tree.",
+    "Share a hope for Gelephu Mindfulness City and grow a leaf on the GM Tree.",
   robots: { index: false, follow: false },
 };
 
 export default async function JoinPage({
   searchParams,
 }: {
-  searchParams: Promise<{ theme?: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const params = await searchParams,
     theme = themeSchema.safeParse(params.theme);

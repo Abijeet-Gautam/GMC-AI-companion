@@ -63,7 +63,7 @@ export function VisitorAccess({
     try {
       await api("/api/visitor", {
         method: "PATCH",
-        body: JSON.stringify({ leafId, consent: true }),
+        body: JSON.stringify({ leafId, consent }),
       });
       setSaved(true);
     } catch (err) {

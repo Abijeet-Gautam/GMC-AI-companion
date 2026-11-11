@@ -161,4 +161,10 @@ The suite starts isolated servers on 3100/3101, a provider mock on 3102, and tim
 
 `npm run test:smoke` runs against an existing server (`TEST_BASE_URL` overrides localhost:3000). It creates six real test leaves in that database. Prefer the isolated suite for clean event data.
 
+## Project reference
+
+- **Repository:** https://github.com/yeshngedup-debug/GM-Tree.git
+- **Live website:** https://gm-tree.vercel.app/
+- **Git branch:** `main` (single branch only)
+
 See [API contract](docs/API.md), [team ownership](docs/TEAM_TASKS.md), and [demo guide](docs/DEMO.md).

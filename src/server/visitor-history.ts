@@ -208,7 +208,7 @@ export async function visitorHistory(profile: string, page = 1) {
     total,
     page,
     pages: Math.max(1, Math.ceil(total / 5)),
-    voices: rows.rows.map((row) => ({
+    voices: rows.rows.map((row: Record<string, unknown>) => ({
       id: String(row.id),
       leaf_message: String(row.leaf_message),
       category: row.category,

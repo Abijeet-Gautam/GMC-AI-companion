@@ -13,131 +13,145 @@ import {
   defaultTreeSettings,
   type TreeSettings,
 } from "@/lib/tree-settings";
+import {
+  query as sqliteQuery,
+  transaction as sqliteTransaction,
+  getSessionSecret as sqliteGetSessionSecret,
+  db as sqliteDb,
+  closeDb as sqliteCloseDb,
+} from "../db-sqlite";
 
 let dbInitError: Error | null = null;
 let pool: Pool | null = null;
 let sessionSecretValue = "";
 
-try {
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    max: 5,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  });
+const useSqlite = Boolean(process.env.DATABASE_PATH);
 
-  const initSql = `
-    create extension if not exists pgcrypto;
+if (useSqlite) {
+  sessionSecretValue = sqliteGetSessionSecret();
+} else {
+  try {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
 
-    create table if not exists approved_leaves (
-      id text primary key,
-      idempotency_key text not null unique,
-      category text not null check (category in ('nature','innovation','education','community','wellbeing','culture')),
-      chamber_id integer not null check (chamber_id between 1 and 4),
-      chamber_reason text not null,
-      created_at timestamptz not null default now(),
-      status text not null default 'approved' check (status in ('approved','hidden')),
-      mode text not null default 'offline',
-      is_demo integer not null default 0,
-      payload_hash text not null default ''
+    const initSql = `
+      create extension if not exists pgcrypto;
+
+      create table if not exists approved_leaves (
+        id text primary key,
+        idempotency_key text not null unique,
+        category text not null check (category in ('nature','innovation','education','community','wellbeing','culture')),
+        chamber_id integer not null check (chamber_id between 1 and 4),
+        chamber_reason text not null,
+        created_at timestamptz not null default now(),
+        status text not null default 'approved' check (status in ('approved','hidden')),
+        mode text not null default 'offline',
+        is_demo integer not null default 0,
+        payload_hash text not null default ''
+      );
+
+      create index if not exists leaves_public_order on approved_leaves(status, created_at desc, id desc);
+
+      create table if not exists app_meta (
+        key text primary key,
+        value text not null
+      );
+
+      create table if not exists rate_limits (
+        key text primary key,
+        count integer not null,
+        expires bigint not null
+      );
+
+      create table if not exists audit_events (
+        id serial primary key,
+        action text not null,
+        leaf_id text,
+        created_at timestamptz not null default now()
+      );
+
+      create table if not exists reflection_cache (
+        id integer primary key check (id = 1),
+        body text not null,
+        mode text not null,
+        created_at timestamptz not null default now(),
+        source_revision integer not null
+      );
+
+      create table if not exists metrics (
+        key text primary key,
+        count integer not null default 0
+      );
+
+      create table if not exists visitor_submissions (
+        id text primary key,
+        idempotency_key text not null unique,
+        leaf_id text,
+        private_message text not null,
+        selected_theme text not null,
+        outcome text not null check (outcome in ('approved','rejected')),
+        reason text not null default '',
+        created_at timestamptz not null default now(),
+        private_reply text not null default '',
+        owner_key text not null default '',
+        visit_kind text not null default 'first'
+      );
+
+      create index if not exists visitor_submissions_order on visitor_submissions(created_at desc, id desc);
+
+      create table if not exists visitor_profiles (
+        id text primary key,
+        cid_hash text not null unique,
+        pin_salt text not null,
+        pin_hash text not null,
+        created_at timestamptz not null default now()
+      );
+
+      create table if not exists visitor_profile_leaves (
+        leaf_id text primary key,
+        profile_id text not null,
+        linked_at timestamptz not null default now()
+      );
+
+      create index if not exists visitor_profile_leaves_profile on visitor_profile_leaves(profile_id, linked_at desc);
+
+      create table if not exists visitor_profile_sessions (
+        token_hash text primary key,
+        profile_id text not null,
+        expires bigint not null
+      );
+
+      insert into app_meta (key, value) values ('revision', '0') on conflict (key) do nothing;
+      insert into app_meta (key, value) values ('session_secret', $1) on conflict (key) do nothing;
+    `;
+    pool.query(initSql, [randomBytes(32).toString("hex")]);
+    sessionSecretValue = String(
+      (
+        pool.query(
+          "select value from app_meta where key='session_secret'",
+        ) as unknown as { rows: [{ value: string }] }
+      ).rows[0].value,
     );
-
-    create index if not exists leaves_public_order on approved_leaves(status, created_at desc, id desc);
-
-    create table if not exists app_meta (
-      key text primary key,
-      value text not null
-    );
-
-    create table if not exists rate_limits (
-      key text primary key,
-      count integer not null,
-      expires bigint not null
-    );
-
-    create table if not exists audit_events (
-      id serial primary key,
-      action text not null,
-      leaf_id text,
-      created_at timestamptz not null default now()
-    );
-
-    create table if not exists reflection_cache (
-      id integer primary key check (id = 1),
-      body text not null,
-      mode text not null,
-      created_at timestamptz not null default now(),
-      source_revision integer not null
-    );
-
-    create table if not exists metrics (
-      key text primary key,
-      count integer not null default 0
-    );
-
-    create table if not exists visitor_submissions (
-      id text primary key,
-      idempotency_key text not null unique,
-      leaf_id text,
-      private_message text not null,
-      selected_theme text not null,
-      outcome text not null check (outcome in ('approved','rejected')),
-      reason text not null default '',
-      created_at timestamptz not null default now(),
-      private_reply text not null default '',
-      owner_key text not null default '',
-      visit_kind text not null default 'first'
-    );
-
-    create index if not exists visitor_submissions_order on visitor_submissions(created_at desc, id desc);
-
-    create table if not exists visitor_profiles (
-      id text primary key,
-      cid_hash text not null unique,
-      pin_salt text not null,
-      pin_hash text not null,
-      created_at timestamptz not null default now()
-    );
-
-    create table if not exists visitor_profile_leaves (
-      leaf_id text primary key,
-      profile_id text not null,
-      linked_at timestamptz not null default now()
-    );
-
-    create index if not exists visitor_profile_leaves_profile on visitor_profile_leaves(profile_id, linked_at desc);
-
-    create table if not exists visitor_profile_sessions (
-      token_hash text primary key,
-      profile_id text not null,
-      expires bigint not null
-    );
-
-    insert into app_meta (key, value) values ('revision', '0') on conflict (key) do nothing;
-    insert into app_meta (key, value) values ('session_secret', $1) on conflict (key) do nothing;
-  `;
-  pool.query(initSql, [randomBytes(32).toString("hex")]);
-  sessionSecretValue = String(
-    (
-      pool.query(
-        "select value from app_meta where key='session_secret'",
-      ) as unknown as { rows: [{ value: string }] }
-    ).rows[0].value,
-  );
-} catch (error) {
-  dbInitError = error instanceof Error ? error : new Error(String(error));
-  console.error("Database initialization failed:", dbInitError.message);
+  } catch (error) {
+    dbInitError = error instanceof Error ? error : new Error(String(error));
+    console.error("Database initialization failed:", dbInitError.message);
+  }
 }
 
-export const db = pool as Pool;
+export const db = useSqlite ? sqliteDb : (pool as unknown as { query: typeof sqliteQuery; exec: typeof sqliteDb.exec; all: typeof sqliteDb.all; get: typeof sqliteDb.get; run: typeof sqliteDb.run; transaction: typeof sqliteTransaction });
 export const sessionSecret = sessionSecretValue;
 export const publicFields =
   "id, category, leaf_message, chamber_id, chamber_reason, created_at, mode, is_demo";
 
-function requireDb(): Pool {
+function requireDb(): { query: typeof sqliteQuery } {
+  if (useSqlite) return sqliteDb;
   if (dbInitError) throw dbInitError;
   if (!pool) throw new Error("Database is not initialized.");
-  return pool;
+  return pool as unknown as { query: typeof sqliteQuery };
 }
 
 function rowToLeaf(row: Record<string, unknown>): Leaf {
@@ -153,17 +167,25 @@ async function q<T = unknown>(
 }
 
 export async function transaction<T>(operation: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await requireDb().connect();
+  if (useSqlite) {
+    return sqliteTransaction(async (client) => {
+      // client.query is the sqlite query; ignore typed client param
+      return operation({ query: client.query } as unknown as PoolClient);
+    });
+  }
+  const client = await requireDb();
+  // pg path
+  const pgClient = await pool!.connect();
   try {
-    await client.query("BEGIN");
-    const result = await operation(client);
-    await client.query("COMMIT");
+    await pgClient.query("BEGIN");
+    const result = await operation(pgClient);
+    await pgClient.query("COMMIT");
     return result;
   } catch (error) {
-    await client.query("ROLLBACK");
+    await pgClient.query("ROLLBACK");
     throw error;
   } finally {
-    client.release();
+    pgClient.release();
   }
 }
 
@@ -184,8 +206,6 @@ export async function asyncRevision(): Promise<number> {
 }
 
 export function revision(): number {
-  // Synchronous accessor: returns cached value, may be stale by up to TTL.
-  // Callers that need fresh data should use asyncRevision().
   return revisionCache;
 }
 
@@ -309,14 +329,14 @@ export function treeStats(): Promise<TreeStats> {
     }).format(new Date());
     return q<{ total: string; demo: string; today: string }>(
       `select count(*) as total,
-             coalesce(sum(is_demo::int),0) as demo,
-             coalesce(sum(case when date(created_at at time zone 'Asia/Thimphu' = $1) then 1 else 0 end),0) as today
-       from approved_leaves where status='approved'`,
+             coalesce(sum(is_demo),0) as demo,
+             coalesce(sum(case when date(created_at) = date($1) then 1 else 0 end),0) as today
+      from approved_leaves where status='approved'`,
       [today],
     ).then((r) => ({
-      total: Number(r[0].total),
-      demo: Number(r[0].demo),
-      today: Number(r[0].today),
+      total: Number(r[0]?.total ?? 0),
+      demo: Number(r[0]?.demo ?? 0),
+      today: Number(r[0]?.today ?? 0),
       categories,
     }));
   });
@@ -345,13 +365,43 @@ export function saveReflection(reflection: Reflection, sourceRevision: number) {
 }
 
 export async function snapshot(): Promise<TreeSnapshot> {
-  const [stats, leaves, reflection, revision, settings] = await Promise.all([
-    treeStats(),
-    listLeaves(),
-    currentReflection(),
-    asyncRevision(),
-    getTreeSettings(),
-  ]);
+  let stats: TreeStats;
+  try {
+    stats = await treeStats();
+  } catch {
+    stats = {
+      total: 0,
+      today: 0,
+      demo: 0,
+      categories: Object.fromEntries(
+        themes.map((t) => [t.id, 0]),
+      ) as Record<Theme, number>,
+    };
+  }
+  let leaves: Leaf[] = [];
+  try {
+    leaves = await listLeaves();
+  } catch {
+    leaves = [];
+  }
+  let reflection: Reflection | null = null;
+  try {
+    reflection = await currentReflection();
+  } catch {
+    reflection = null;
+  }
+  let revision = 0;
+  try {
+    revision = await asyncRevision();
+  } catch {
+    revision = 0;
+  }
+  let settings: TreeSettings = defaultTreeSettings;
+  try {
+    settings = await getTreeSettings();
+  } catch {
+    settings = defaultTreeSettings;
+  }
   return {
     leaves,
     total: stats.total,
@@ -553,7 +603,7 @@ export function deleteSubmission(id: string) {
     await client.query("delete from visitor_submissions where id=$1", [id]);
     changed();
     await client.query(
-      "insert into audit_events(action,leaf_id,created_at) values('delete_private_message',$1,$2)",
+      "insert into audit_events(action,leaf_id,created_at) values($1,$2,$3)",
       [row.rows[0].leaf_id || null, new Date().toISOString()],
     );
     return true;
@@ -665,3 +715,5 @@ export function clearDemo() {
     return Number(result.rowCount);
   });
 }
+
+export { sqliteCloseDb as closeDb };

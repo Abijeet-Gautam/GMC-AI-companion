@@ -1,9 +1,26 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { TreeSnapshot } from "@/lib/catalog";
+import { themes, type Theme, type Leaf } from "@/lib/catalog";
 import { fetchWithTimeout } from "@/lib/client";
+import { defaultTreeSettings } from "@/lib/tree-settings";
 export function useTree({ cache = false }: { cache?: boolean } = {}) {
-  const [tree, setTree] = useState<TreeSnapshot | null>(null),
+  const [tree, setTree] = useState<TreeSnapshot>(() => ({
+    leaves: [],
+    total: 0,
+    stats: {
+      total: 0,
+      today: 0,
+      demo: 0,
+      categories: Object.fromEntries(
+        themes.map((t) => [t.id, 0]),
+      ) as Record<Theme, number>,
+    },
+    reflection: null,
+    revision: 0,
+    serverTime: new Date().toISOString(),
+    settings: defaultTreeSettings,
+  })),
     [connection, setConnection] = useState<
       "connecting" | "live" | "reconnecting"
     >("connecting");
@@ -13,10 +30,23 @@ export function useTree({ cache = false }: { cache?: boolean } = {}) {
     let busy = false;
     function accept(data: TreeSnapshot) {
       if (!alive) return;
+      const safeData: TreeSnapshot = {
+        ...data,
+        stats: {
+          total: data.stats?.total ?? 0,
+          today: data.stats?.today ?? 0,
+          demo: data.stats?.demo ?? 0,
+          categories: (data.stats?.categories ??
+            Object.fromEntries(themes.map((t) => [t.id, 0]))) as Record<
+            Theme,
+            number
+          >,
+        },
+      };
       setTree((previous) =>
         !previous ||
         Date.parse(data.serverTime) >= Date.parse(previous.serverTime)
-          ? data
+          ? safeData
           : previous,
       );
       setConnection(navigator.onLine ? "live" : "reconnecting");

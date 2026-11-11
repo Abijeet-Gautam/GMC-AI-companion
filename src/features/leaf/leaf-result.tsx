@@ -156,18 +156,28 @@ export function LeafResult({
           reason={leaf.chamber_reason}
         />
         <ReceiptTree leaf={leaf} />
-        <div className="grid grid-cols-3 gap-2">
-          <Button variant="secondary" size="sm" onClick={share}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={share}
+            className="w-full sm:w-auto"
+          >
             <Share2 size={13} />
             Share leaf
           </Button>
-          <Button variant="secondary" size="sm" onClick={download}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={download}
+            className="w-full sm:w-auto"
+          >
             <Download size={13} />
             Save keepsake
           </Button>
           <Link
             href={`/leaf/${leaf.id}`}
-            className="flex min-h-10 items-center justify-center gap-1 rounded-full bg-muted px-2 text-center text-[10px]"
+            className="w-full sm:w-auto flex min-h-10 items-center justify-center gap-1 rounded-full bg-muted px-2 text-center text-[10px]"
           >
             Open your keepsake page
             <ArrowUpRight size={12} className="shrink-0" />

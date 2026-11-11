@@ -41,9 +41,9 @@ export function VisitorVoices() {
     }
   }
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl">Your previous voices</h1>
+        <h1 className="text-3xl tracking-tight">Your previous voices</h1>
         <p className="mt-2 text-sm leading-6 text-foreground/60">
           A private place for the hopes you’ve shared and the replies you
           received.
@@ -55,9 +55,7 @@ export function VisitorVoices() {
         </p>
       )}
       {!history ? (
-        <p role="status" className="text-xs">
-          Opening your visit history…
-        </p>
+        <p role="status" className="text-xs">Opening your visit history…</p>
       ) : !history.authenticated ? (
         <VisitorAccess onUnlocked={load} />
       ) : (
@@ -71,6 +69,7 @@ export function VisitorVoices() {
               size="sm"
               onClick={() => void leave()}
               disabled={busy}
+              className="w-full sm:w-auto"
             >
               Sign out
             </Button>
@@ -81,8 +80,8 @@ export function VisitorVoices() {
             </p>
           )}
           {history.voices.map((voice) => (
-            <article key={voice.id} className="rounded-3xl bg-card p-5 sm:p-7">
-              <p className="text-[11px] text-foreground/55">
+            <article key={voice.id} className="rounded-2xl bg-card p-5 sm:p-6 border border-border">
+              <p className="text-[10px] text-foreground/55">
                 {new Date(voice.created_at).toLocaleDateString("en-GB", {
                   timeZone: "Asia/Thimphu",
                   year: "numeric",
@@ -91,23 +90,23 @@ export function VisitorVoices() {
                 })}{" "}
                 · Chamber {voice.chamber_id}
               </p>
-              <h2 className="mt-3 text-xs font-medium">Your note</h2>
+              <h2 className="mt-3 text-sm font-medium">Your note</h2>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
                 {voice.note || "The original note is no longer available."}
               </p>
               {voice.reply && (
-                <div className="mt-4 rounded-2xl bg-muted p-4">
-                  <h3 className="text-xs font-medium">Your reply</h3>
+                <div className="mt-4 rounded-xl bg-muted p-4">
+                  <h3 className="text-sm font-medium">Your reply</h3>
                   <p className="mt-2 text-sm leading-6">{voice.reply}</p>
                 </div>
               )}
-              <p className="mt-4 text-xs leading-5 text-foreground/60">
+              <p className="mt-4 text-[10px] leading-5 text-foreground/60">
                 Your leaf: “{voice.leaf_message}”
               </p>
               {voice.status === "approved" ? (
                 <Link
                   href={`/leaf/${voice.id}`}
-                  className="mt-3 inline-flex min-h-9 items-center text-xs underline underline-offset-4"
+                  className="mt-3 inline-flex min-h-10 items-center text-sm underline underline-offset-4"
                 >
                   Open public keepsake
                 </Link>
@@ -120,45 +119,48 @@ export function VisitorVoices() {
           ))}
           {history.pages > 1 && (
             <nav
-              className="flex items-center justify-between gap-3"
+              className="flex items-center justify-between gap-2"
               aria-label="History pages"
             >
               <Button
                 variant="secondary"
                 disabled={page <= 1}
                 onClick={() => setPage((value) => value - 1)}
+                className="w-full sm:w-auto"
               >
                 Previous
               </Button>
-              <span className="text-xs">
+              <span className="text-sm text-foreground/60 shrink-0">
                 {page} / {history.pages}
               </span>
               <Button
                 variant="secondary"
                 disabled={page >= history.pages}
                 onClick={() => setPage((value) => value + 1)}
+                className="w-full sm:w-auto"
               >
                 Next
               </Button>
             </nav>
           )}
-          <details className="rounded-2xl bg-muted p-4">
-            <summary className="cursor-pointer text-xs">
+          <details className="rounded-xl bg-muted p-4">
+            <summary className="cursor-pointer text-sm">
               Manage my visit profile
             </summary>
-            <p className="mt-3 text-xs leading-5 text-foreground/60">
+            <p className="mt-3 text-sm leading-6 text-foreground/60">
               Removing your profile deletes its CID lookup, PIN and history
               links and signs out every device. Anonymous leaves and staff
               submission records remain. This action cannot be undone.
             </p>
             {confirmForget ? (
-              <div className="mt-3 flex flex-wrap gap-3">
-                <Button disabled={busy} onClick={() => void leave(true)}>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button disabled={busy} onClick={() => void leave(true)} className="w-full sm:w-auto">
                   Remove my visit profile
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={() => setConfirmForget(false)}
+                  className="w-full sm:w-auto"
                 >
                   Keep my profile
                 </Button>
@@ -166,18 +168,18 @@ export function VisitorVoices() {
             ) : (
               <Button
                 variant="secondary"
-                className="mt-3"
+                className="mt-3 w-full sm:w-auto"
                 onClick={() => setConfirmForget(true)}
               >
                 Remove profile…
               </Button>
             )}
           </details>
+          <Button asChild className="mt-6 w-full">
+            <Link href="/join">Add a new hope</Link>
+          </Button>
         </>
       )}
-      <Button asChild className="w-full">
-        <Link href="/join">Add a new hope</Link>
-      </Button>
     </div>
   );
 }

@@ -21,6 +21,15 @@
   --color-accent: var(--accent);
   --radius-md: var(--radius);
 }
+/* Safe-area helpers for notched phones and home indicators. */
+@layer utilities {
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .safe-area-top {
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+  }
+}
 * {
   box-sizing: border-box;
 }

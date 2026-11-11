@@ -107,10 +107,10 @@ export function VisitorAccess({
     >
       <div className="flex items-start gap-3">
         <span className="visitor-lock">
-          <LockKeyhole size={19} />
+          <LockKeyhole size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-xl">
+          <h2 className="text-lg">
             {known && (!leafId || saved)
               ? "Your voice has a home."
               : known
@@ -119,7 +119,7 @@ export function VisitorAccess({
                   ? "Find your voice next time."
                   : "Welcome back."}
           </h2>
-          <p className="mt-1 text-xs leading-5 text-foreground/65">
+          <p className="mt-1 text-sm leading-6 text-foreground/65">
             {known
               ? "Open your private history to revisit your notes and replies."
               : leafId
@@ -129,19 +129,19 @@ export function VisitorAccess({
         </div>
       </div>
       {known ? (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           {(!leafId || saved) && (
-            <span className="inline-flex items-center gap-1 text-xs">
-              <Check size={14} />{" "}
+            <span className="inline-flex items-center gap-1.5 text-sm">
+              <Check size={15} />{" "}
               {leafId ? "Connected to your visit history" : "History unlocked"}
             </span>
           )}
           {leafId && !saved && (
-            <Button size="sm" disabled={busy} onClick={() => void connect()}>
+            <Button size="sm" disabled={busy} onClick={() => void connect()} className="w-full sm:w-auto">
               Connect this voice to my history
             </Button>
           )}
-          <Button asChild size="sm">
+          <Button asChild size="sm" className="w-full sm:w-auto">
             <Link href="/voices">
               My previous voices <ArrowRight size={14} />
             </Link>
@@ -150,14 +150,14 @@ export function VisitorAccess({
       ) : (
         <>
           {!open && (
-            <Button className="mt-3 w-full" onClick={() => setOpen(true)}>
+            <Button className="mt-4 w-full" onClick={() => setOpen(true)}>
               Add my CID (optional) <ArrowRight size={15} />
             </Button>
           )}
           {open && (
             <form onSubmit={submit} className="mt-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block text-xs">
+              <div className="space-y-3 sm:grid sm:grid-cols-2 sm:gap-3">
+                <label className="block text-sm">
                   CID
                   <input
                     className="visitor-input"
@@ -177,7 +177,7 @@ export function VisitorAccess({
                     disabled={busy}
                   />
                 </label>
-                <label className="block text-xs">
+                <label className="block text-sm">
                   Private PIN
                   <input
                     className="visitor-input"
@@ -199,10 +199,10 @@ export function VisitorAccess({
                 </label>
               </div>
               {leafId && (
-                <label className="flex items-start gap-2 text-[11px] leading-5">
+                <label className="flex items-start gap-2 text-sm leading-6">
                   <input
                     type="checkbox"
-                    className="mt-1 accent-primary"
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
                     checked={consent}
                     onChange={(event) => setConsent(event.target.checked)}
                     required
@@ -217,7 +217,7 @@ export function VisitorAccess({
               {error && (
                 <p
                   role="alert"
-                  className="rounded-xl bg-red-50 p-3 text-xs text-red-800"
+                  className="rounded-xl bg-red-50 p-3 text-sm text-red-800"
                 >
                   {error}
                 </p>
@@ -233,19 +233,19 @@ export function VisitorAccess({
                 }
               >
                 {busy ? (
-                  <LoaderCircle size={15} className="orbit" />
+                  <LoaderCircle size={16} className="orbit" />
                 ) : (
-                  <LockKeyhole size={15} />
+                  <LockKeyhole size={16} />
                 )}
                 {leafId ? "Remember this voice" : "Unlock my voices"}
               </Button>
-              <p className="text-[10px] leading-4 text-foreground/55">
+              <p className="text-[10px] leading-5 text-foreground/55">
                 Your CID is kept as a protected lookup, never on the tree or
                 sent to AI. Use your existing PIN if you have saved a voice
                 before. Sign-in lasts 12 hours on this browser.
               </p>
               {leafId && (
-                <p className="text-[10px] leading-4 text-foreground/55">
+                <p className="text-[10px] leading-5 text-foreground/55">
                   Choose a PIN you can remember; staff cannot recover it.
                 </p>
               )}
@@ -254,14 +254,14 @@ export function VisitorAccess({
         </>
       )}
       {known && error && (
-        <p role="alert" className="mt-3 text-xs text-red-800">
+        <p role="alert" className="mt-3 text-sm text-red-800">
           {error}
         </p>
       )}
       {onDismiss && (
         <button
           type="button"
-          className="mt-3 min-h-8 text-xs text-foreground/65"
+          className="mt-4 min-h-10 text-sm text-foreground/65"
           onClick={onDismiss}
         >
           Continue with a new hope

@@ -378,14 +378,14 @@ export function DisplayScreen() {
               <Link
                 href="/join"
                 className="kiosk-qr"
-                aria-label="Add your hope"
+                aria-label="Scan with your phone to add your hope"
               >
                 {" "}
                 <QRCodeSVG
                   value={joinUrl}
-                  size={160}
-                  marginSize={4}
-                  title="Scan to add your hope"
+                  size={220}
+                  marginSize={6}
+                  title="Scan with your phone to add your hope"
                 />
               </Link>
             )}
@@ -397,7 +397,7 @@ export function DisplayScreen() {
               </h2>
               <p>
                 {settings.acceptingContributions
-                  ? "Scan. Share a hope. Watch it grow."
+                  ? "Scan with your phone. Share a hope. Watch it grow."
                   : "The tree is resting. Come back shortly."}
               </p>
               <span>{joinUrl.replace(/^https?:\/\//, "")}</span>

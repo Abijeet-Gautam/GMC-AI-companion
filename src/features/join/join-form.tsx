@@ -22,8 +22,10 @@ import { uuid, api } from "@/lib/client";
 import { themeSchema, contributionSchema } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { VisitorAccess } from "./visitor-access";
+
 export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
   const section = useRef<HTMLElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
   const [hydrated, setHydrated] = useState(false),
     [online, setOnline] = useState(true),
     [paused, setPaused] = useState(false),
@@ -114,9 +116,9 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
       )
         .then((data) => setPaused(!data.settings.acceptingContributions))
         .catch((err) => {
-      // Settings poll is best-effort; retried every 15s, so a failure is safe to ignore.
-      void err;
-    });
+          // Settings poll is best-effort; retried every 15s, so a failure is safe to ignore.
+          void err;
+        });
     };
     checkSettings();
     const timer = setInterval(checkSettings, 15000);
@@ -140,14 +142,23 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     }
   }, [theme, aspiration, leaf, hydrated]);
   useEffect(() => {
-    if (hydrated && step === 1)
+    if (hydrated && step === 1) {
       window.scrollTo({
         top: 0,
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? "auto"
           : "smooth",
       });
+      textarea.current?.focus();
+    }
   }, [step, hydrated]);
+  function grow() {
+    const element = textarea.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
+  }
+  useEffect(grow, [aspiration]);
   function edit(text: string) {
     setAspiration(text);
     setError("");
@@ -234,7 +245,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
   const themeColor = themeFor(theme).color;
   if (leaf)
     return (
-      <section className="space-y-6" aria-label="Your leaf">
+      <section className="w-full space-y-6 sm:max-w-md sm:mx-auto" aria-label="Your leaf">
         <LeafResult
           leaf={leaf}
           compact
@@ -254,7 +265,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
       </section>
     );
   return (
-    <section ref={section} className="max-w-xl w-full space-y-10" aria-label="Add your hope">
+    <section ref={section} className="w-full space-y-10 sm:max-w-md sm:mx-auto" aria-label="Add your hope">
       <div className="visit-choice" aria-label="Your visit">
         <span className="text-[10px] font-semibold tracking-wider uppercase text-foreground/45">
           Your visit
@@ -268,7 +279,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               setVisitorType("first");
               setShowHistory(false);
             }}
-            className="min-h-9 shrink-0 rounded-full border border-border px-3 py-1 text-[10px] transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+            className="min-h-10 shrink-0 rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
           >
             First visit
           </button>
@@ -280,7 +291,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               setVisitorType("returning");
               setShowHistory(true);
             }}
-            className="min-h-9 shrink-0 rounded-full border border-border px-3 py-1 text-[10px] transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+            className="min-h-10 shrink-0 rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
           >
             Returning
           </button>
@@ -297,12 +308,12 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           <VisitorAccess onDismiss={() => setShowHistory(false)} />
         </div>
       )}
-      <ol aria-label="Your progress" className="flex items-center justify-between gap-3 text-[10px] uppercase tracking-wider">
+      <ol aria-label="Your progress" className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wider">
         {["Theme", "Your note", "Your leaf"].map((label, index) => (
           <li key={label} className="flex flex-col items-center gap-1">
             <span
               className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-medium border",
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-medium border",
                 step === index
                   ? "bg-accent border-accent text-primary-foreground"
                   : "border-border text-foreground/40",
@@ -324,12 +335,12 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
         ))}
       </ol>
       {!online && (
-        <p role="status" className="rounded-lg bg-muted p-3 text-xs leading-5 text-foreground/60">
+        <p role="status" className="rounded-xl bg-muted p-3 text-sm leading-6 text-foreground/60">
           You're offline. Your note is saved in this tab; reconnect to send it.
         </p>
       )}
       {paused && (
-        <p role="status" className="rounded-lg bg-muted p-3 text-xs leading-5 text-foreground/60">
+        <p role="status" className="rounded-xl bg-muted p-3 text-sm leading-6 text-foreground/60">
           The tree is resting for a moment. Keep your hope here and try again
           shortly.
         </p>
@@ -352,12 +363,12 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           </div>
           <fieldset className="border border-border rounded-2xl p-1">
             <legend className="sr-only">Choose a theme</legend>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {themes.map((item) => (
                 <label
                   key={item.id}
                   className={cn(
-                    "relative flex cursor-pointer items-center gap-3 rounded-xl bg-card p-3 transition-colors border border-transparent focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary",
+                    "relative flex cursor-pointer items-center gap-3 rounded-xl bg-card border border-transparent p-3 transition-colors min-h-[56px]",
                     theme === item.id
                       ? "bg-accent border-accent/40"
                       : "hover:bg-muted hover:border-border",
@@ -374,13 +385,13 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
                     }}
                   />
                   <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                     style={{ backgroundColor: themeColor }}
                   >
-                    <ThemeIcon theme={item.id} size={16} />
+                    <ThemeIcon theme={item.id} size={18} />
                   </div>
-                  <div className="flex-1">
-                    <span className="block text-xs font-medium leading-5">
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium leading-5">
                       {item.label}
                     </span>
                     <span className="block text-[10px] text-foreground/45">
@@ -388,7 +399,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
                     </span>
                   </div>
                   {theme === item.id && (
-                    <Check size={13} className="shrink-0 text-primary-foreground" />
+                    <Check size={14} className="shrink-0 text-primary-foreground" />
                   )}
                 </label>
               ))}
@@ -404,12 +415,12 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           <div className="flex items-center justify-between gap-3">
             <span
               className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
                 "border border-border text-foreground/40",
               )}
               style={{ backgroundColor: themeColor }}
             >
-              <ThemeIcon theme={theme} size={12} className="text-foreground" />
+              <ThemeIcon theme={theme} size={14} className="text-foreground" />
             </span>
             <span className="text-[10px] font-medium uppercase tracking-wider text-foreground/40">
               {themeFor(theme).short}
@@ -424,25 +435,25 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             </button>
           </div>
           <h1 className="text-2xl tracking-tight">Share a little hope.</h1>
-          <label htmlFor="aspiration" className="block text-xs font-medium">
+          <label htmlFor="aspiration" className="block text-sm font-medium">
             What is your hope for the city?
           </label>
           <textarea
+            ref={textarea}
             id="aspiration"
             required
             minLength={3}
             maxLength={200}
-            rows={3}
             value={aspiration}
             disabled={busy}
             onChange={(event) => edit(event.target.value)}
             placeholder="A hope, a thought, or something you'd love to see…"
             aria-describedby="aspiration-help"
-            className="w-full min-h-[120px] resize-none rounded-xl border border-border bg-muted p-4 text-sm leading-relaxed focus:border-primary focus:ring-1 focus:ring-primary transition-colors disabled:opacity-60 disabled:pointer-events-none"
+            className="w-full min-h-[140px] resize-none rounded-xl border border-border bg-muted p-4 text-base leading-relaxed font-sans focus:border-primary focus:ring-1 focus:ring-primary transition-colors disabled:opacity-60 disabled:pointer-events-none"
           />
           <div
             id="aspiration-help"
-            className="flex justify-between gap-3 text-[9px] text-foreground/45"
+            className="flex justify-between gap-3 text-[10px] text-foreground/45"
           >
             <span>Leave out names, contact details and links.</span>
             <span className="shrink-0">{aspiration.length} / 200</span>
@@ -451,19 +462,19 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             type="button"
             disabled={busy}
             onClick={() => edit(themeFor(theme).prompt)}
-            className="inline-flex min-h-8 items-center gap-2 text-[11px] text-foreground/60 hover:underline"
+            className="inline-flex min-h-9 items-center gap-2 text-[11px] text-foreground/60 hover:underline"
           >
             <Sparkles size={13} />
             Try an example
           </button>
-          <label className="flex items-start gap-3 text-[11px] leading-5">
+          <label className="flex items-start gap-3 text-sm leading-6">
             <input
               type="checkbox"
               required
               checked={consent}
               disabled={busy}
               onChange={(event) => setConsent(event.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0 accent-primary"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
             />
             <span>
               I agree to share my anonymous leaf publicly and let staff
@@ -471,7 +482,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             </span>
           </label>
           <details className="text-[10px] text-foreground/55">
-            <summary className="cursor-pointer min-h-[32px] py-1.5">
+            <summary className="cursor-pointer min-h-[36px] py-1.5">
               Privacy &amp; how this works
             </summary>
             <p className="leading-relaxed pt-2">
@@ -490,7 +501,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           {error && (
             <p
               role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-800"
+              className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-800"
             >
               {error}
             </p>
@@ -508,13 +519,13 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           >
             {busy ? (
               <>
-                <LoaderCircle size={16} className="orbit" />
+                <LoaderCircle size={17} className="orbit" />
                 Finding your branch…
               </>
             ) : (
               <>
                 Grow my leaf
-                <Sprout size={16} />
+                <Sprout size={17} />
               </>
             )}
           </Button>

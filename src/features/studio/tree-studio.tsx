@@ -202,7 +202,7 @@ export function TreeStudio() {
       <header className="studio-header">
         <Link href="/display" className="studio-back">
           <ArrowLeft size={16} />
-          <span>The Living Tree</span>
+          <span>GM Tree</span>
         </Link>
         <div className="studio-palettes" aria-label="Tree palettes">
           {palettes.map(([id, label, color]) => (

@@ -45,7 +45,7 @@ export function ReceiptTree({ leaf }: { leaf: Leaf }) {
         context.textAlign = "center";
         context.fillStyle = dark ? "#f1f4e8" : "#243c3a";
         context.font = "28px Georgia";
-        context.fillText("The Living Tree of Gelephu", 500, 66);
+        context.fillText("GM Tree", 500, 66);
         context.font = "19px Arial";
         context.fillText(
           `Your leaf #${leaf.id.slice(0, 6)} · ${Math.max(tree?.total || 0, leaves.length)} shared hopes`,

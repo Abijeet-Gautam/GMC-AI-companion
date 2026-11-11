@@ -166,7 +166,7 @@ export function TreeCanvas({
       }
       data-growth-phase={state === "3d" ? undefined : growth.phase}
       role="group"
-      aria-label="The Living Tree of Gelephu"
+      aria-label="GM Tree"
     >
       <div
         ref={host}

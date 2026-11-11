@@ -6,7 +6,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link
       href="/"
-      aria-label="The Living Tree home"
+      aria-label="GM Tree home"
       className="inline-flex items-center gap-2 sm:gap-3"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-accent sm:h-10 sm:w-10">
@@ -14,11 +14,11 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       </span>
       <span>
         <span className="block whitespace-nowrap text-[15px] font-semibold leading-none tracking-tight sm:text-xl">
-          The Living Tree
+          GM Tree
         </span>
         {!compact && (
           <span className="mt-1.5 block whitespace-nowrap text-[6px] tracking-[.18em] opacity-55 sm:text-[8px]">
-            Gelephu Mindfulness City
+            Gelephu Mindfulness Tree
           </span>
         )}
       </span>

@@ -212,7 +212,7 @@ select:focus-visible {
   z-index: 40;
 }
 .admin-sidebar .serif,
-.admin-sidebar a[aria-label="The Living Tree home"] > span:last-child > span {
+.admin-sidebar a[aria-label="GM Tree home"] > span:last-child > span {
   font-size: 17px;
 }
 .admin-sidebar > div:first-child {

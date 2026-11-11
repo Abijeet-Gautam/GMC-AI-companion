@@ -80,8 +80,8 @@ export function TreeIllustration({
         role="group"
         aria-label={
           illustrative
-            ? "An illustration of the Living Tree"
-            : "The Living Tree. Select a glowing leaf to read a hope."
+            ? "An illustration of the GM Tree"
+            : "GM Tree. Select a glowing leaf to read a hope."
         }
       >
         <defs>

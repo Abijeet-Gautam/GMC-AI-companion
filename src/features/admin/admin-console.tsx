@@ -385,7 +385,7 @@ export function AdminConsole() {
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="eyebrow mb-3 text-foreground/40">
-                The Living Tree · Staff console
+                GM Tree · Staff console
               </p>
               <h1 className="text-3xl tracking-tight lg:text-4xl">
                 A little care helps it grow.

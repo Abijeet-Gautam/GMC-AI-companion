@@ -20,6 +20,7 @@ Open http://localhost:3000. Setup creates `.env.local` with a random staff passw
 | ------------ | ---------------------------------------------------------------- |
 | `/`          | Introduction, live tree preview, theme shortcuts                 |
 | `/join`      | Theme selection, aspiration, consent, result                     |
+| `/voices`    | Optional CID + PIN sign-in and private previous notes/replies    |
 | `/display`   | Reception tree, QR, queued leaf arrivals, reflection, fullscreen |
 | `/tree`      | Full-screen interactive Tree Studio, growth previews and exports |
 | `/leaf/[id]` | Public keepsake, sharing/copy fallback, downloadable SVG         |
@@ -32,6 +33,18 @@ Open http://localhost:3000. Setup creates `.env.local` with a random staff passw
 The tree reuses the procedural branch/species/age algorithms from [Mike Fernandez's just-a-simple-tree](https://github.com/MikeFernandez-Pro/just-a-simple-tree). Adapted MIT-licensed modules and the retained licence are in `src/vendor/just-a-simple-tree/`. The source revision and changes are documented in [UPSTREAM.md](src/vendor/just-a-simple-tree/UPSTREAM.md).
 
 Our renderer adds GMC palettes, wind, foliage, deterministic visitor markers, queued arrivals, accessible leaf selection and an adaptive camera. The full-viewport layout keeps the tree, QR and message panel visible in either orientation. Tested viewport sizes include 1080×1920, 2160×3840, 1920×1080, 3840×2160, 1280×720 and phones. The physical TV and browser still need an on-site check.
+
+Portrait keeps a vertical sequence: title, tree, controls, horizontal themes, centered story and QR. The camera frames the tree in the upper area while keeping a continuous full-screen sky/ground canvas, so zoomed branches can extend behind transparent content. Stories have a fixed area: public leaves are limited to 100 characters and displayed reflections to 160, with graceful truncation. Landscape retains its existing overlay positions.
+
+Submitted receipts add a sourced, theme-related GMC fact, a larger chamber recommendation, the current tree with the visitor's leaf highlighted, a tree PNG download (standalone SVG without WebGL), and a separate leaf SVG. Downloads contain only public tree/leaf content.
+
+### Optional returning visitors
+
+Visitors choose first or returning without adding a required note step. After submitting, **Add my CID (optional)** offers private history protected by an 11-digit CID and private 6-digit PIN. Open `/voices` or **My voices** on the join screen on a later visit. While signed in, subsequent submissions are linked automatically. Sign out on shared devices; this also clears the current tab's receipt and draft.
+
+Raw CIDs and PINs are never stored or sent to AI. CID lookup uses a keyed HMAC; PINs use salted scrypt. Only the browser that submitted a note can initially link it. History reads require a 12-hour HttpOnly session and are not cached. Sign-in is rate limited. A forgotten PIN cannot be recovered. Removing a visit profile deletes credentials, links and sessions while preserving anonymous leaves and staff records. This is self-asserted visit history, not government identity verification. Existing leaves from before ownership tracking cannot be claimed by entering a public leaf ID.
+
+In **Admin → Tree & display → Display title**, enter up to 90 characters and choose **Save display title**. This saves the title independently of other appearance edits and updates connected displays.
 
 3D uses WebGL2; WebGPU is not required. If WebGL is unavailable or the context is lost, the interactive illustrated tree takes over. Staff can choose illustration explicitly. Automatic quality caps pixel density and foliage work; reduced-motion mode renders only when the view changes. Tree visuals are generated locally without external image, font or music downloads.
 
@@ -107,7 +120,7 @@ Staff operations are audited locally. The console shows up to 500 recent records
 - Phone drafts and retry keys survive refresh in tab-local session storage. Successful receipts recover after refresh. Short leaf codes connect a phone result to the public display.
 - WAL, transactions, constraints and server timestamps protect persistence. Day counts use Asia/Thimphu.
 - Reflections describe participating visitors' themes, not a representative survey. Demo leaves are flagged throughout.
-- Chamber names follow the report. Descriptions and thematic pathways are project interpretations awaiting GMC review; the official chamber page could not be retrieved.
+- Chamber numbers and locations follow the supplied blueprint. Thematic pathways remain project recommendations. GMC facts in private replies link to the official city information that supports them.
 
 ## Code map
 

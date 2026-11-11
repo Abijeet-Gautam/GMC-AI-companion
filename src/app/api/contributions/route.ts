@@ -17,6 +17,11 @@ import {
 } from "@/server/services/ai";
 import { visitor } from "@/server/auth";
 import {
+  currentVisitorProfile,
+  linkVisitorLeaf,
+  visitorOwner,
+} from "@/server/visitor-history";
+import {
   AppError,
   readJson,
   requireSameOrigin,
@@ -33,7 +38,12 @@ const globalFlights = globalThis as unknown as {
   >;
 };
 const flights = (globalFlights.gmcFlights ??= new Map());
-async function processLeaf(input: ContributionInput, hash: string) {
+async function processLeaf(
+  input: ContributionInput,
+  hash: string,
+  owner: string,
+  profile: string | null,
+) {
   const { visitor_reply, ...generated } = await createLeaf(
     input.aspiration,
     input.theme,
@@ -47,10 +57,11 @@ async function processLeaf(input: ContributionInput, hash: string) {
       created_at: new Date().toISOString(),
       is_demo: false,
     },
-    { ...input, reply: visitor_reply },
+    { ...input, reply: visitor_reply, owner_key: owner },
   );
   if (record.status !== "approved")
     throw new AppError("This leaf has been removed from the public tree.", 410);
+  if (profile) linkVisitorLeaf(profile, record.leaf.id, owner);
   return {
     leaf: record.leaf,
     reply: replyByKey(input.idempotencyKey) || visitor_reply,
@@ -159,7 +170,12 @@ export async function POST(request: Request) {
       );
     }
     historyInput = input;
-    const promise = processLeaf(input, hash);
+    const promise = processLeaf(
+      input,
+      hash,
+      visitorOwner(session.id),
+      currentVisitorProfile(request),
+    );
     flights.set(input.idempotencyKey, { hash, promise });
     try {
       const receipt = await promise;
@@ -174,7 +190,12 @@ export async function POST(request: Request) {
     if (error instanceof AppError && error.code === "MODERATION_REJECTED") {
       recordMetric("rejected");
       if (historyInput)
-        recordSubmission(historyInput, "rejected", undefined, error.message);
+        recordSubmission(
+          { ...historyInput, owner_key: visitorOwner(session.id) },
+          "rejected",
+          undefined,
+          error.message,
+        );
     }
     const response = errorResponse(error);
     if (session.cookie) response.headers.set("Set-Cookie", session.cookie);

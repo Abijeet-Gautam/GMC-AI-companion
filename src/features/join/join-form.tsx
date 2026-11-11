@@ -20,6 +20,7 @@ import { ThemeIcon } from "@/components/theme-icon";
 import { LeafResult } from "@/features/leaf/leaf-result";
 import { uuid, api } from "@/lib/client";
 import { themeSchema } from "@/lib/schemas";
+import { VisitorAccess } from "./visitor-access";
 export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
   const section = useRef<HTMLElement>(null);
   const [hydrated, setHydrated] = useState(false),
@@ -34,6 +35,10 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     [error, setError] = useState(""),
     [leaf, setLeaf] = useState<Leaf | null>(null);
   const [replyMode, setReplyMode] = useState<"openai" | "offline">("offline");
+  const [visitorType, setVisitorType] = useState<"first" | "returning">(
+    "first",
+  );
+  const [showHistory, setShowHistory] = useState(false);
   const [reply, setReply] = useState(""),
     [original, setOriginal] = useState("");
   const key = useRef<string | null>(null),
@@ -162,6 +167,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
           theme,
           consent,
           idempotencyKey: key.current,
+          visitor_type: visitorType,
         }),
       });
       setLeaf(data.leaf);
@@ -236,6 +242,44 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
     );
   return (
     <section ref={section} className="join-panel" aria-label="Add your hope">
+      <div className="visit-choice" aria-label="Your visit">
+        <span className="text-[11px] text-foreground/55">Your visit</span>
+        <div role="group" aria-label="First or returning visitor">
+          <button
+            type="button"
+            aria-pressed={visitorType === "first"}
+            disabled={busy}
+            onClick={() => {
+              setVisitorType("first");
+              setShowHistory(false);
+            }}
+          >
+            First visit
+          </button>
+          <button
+            type="button"
+            aria-pressed={visitorType === "returning"}
+            disabled={busy}
+            onClick={() => {
+              setVisitorType("returning");
+              setShowHistory(true);
+            }}
+          >
+            Returning
+          </button>
+        </div>
+        <Link
+          href="/voices"
+          className="text-[11px] underline underline-offset-4"
+        >
+          My voices
+        </Link>
+      </div>
+      {showHistory && (
+        <div className="mb-4">
+          <VisitorAccess onDismiss={() => setShowHistory(false)} />
+        </div>
+      )}
       <ol aria-label="Your progress" className="join-progress">
         {["Theme", "Your note", "Your leaf"].map((label, index) => (
           <li key={label} aria-current={step === index ? "step" : undefined}>

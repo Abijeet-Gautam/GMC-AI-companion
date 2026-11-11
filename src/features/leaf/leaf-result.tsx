@@ -14,6 +14,9 @@ import { themeFor, chambers, type Leaf } from "@/lib/catalog";
 import { Button } from "@/components/ui/button";
 import { appUrl } from "@/lib/client";
 import { ChamberRecommendation } from "@/features/chambers/chamber-recommendation";
+import { VisitorAccess } from "@/features/join/visitor-access";
+import { ReceiptTree } from "./receipt-tree";
+import { gmcFacts } from "@/lib/gmc-facts";
 export function LeafResult({
   leaf,
   keepsake = false,
@@ -110,6 +113,20 @@ export function LeafResult({
             <p className="text-sm leading-6" data-testid="visitor-reply">
               {reply}
             </p>
+            <aside className="gmc-fact">
+              <p className="text-xs font-medium">A little about Gelephu</p>
+              <p className="mt-1 text-xs leading-5 text-foreground/65">
+                {gmcFacts[leaf.category].text}
+              </p>
+              <a
+                href={gmcFacts[leaf.category].source}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex min-h-8 items-center text-[10px] underline underline-offset-4"
+              >
+                From the official city vision <ArrowUpRight size={11} />
+              </a>
+            </aside>
             {original && (
               <details className="mt-3 text-xs text-foreground/55">
                 <summary className="cursor-pointer">Your original note</summary>
@@ -121,6 +138,7 @@ export function LeafResult({
             </p>
           </section>
         )}
+        <VisitorAccess leafId={leaf.id} />
         <section
           className="flex items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground"
           aria-label="Your public leaf"
@@ -137,6 +155,7 @@ export function LeafResult({
           chamber={leaf.chamber_id}
           reason={leaf.chamber_reason}
         />
+        <ReceiptTree leaf={leaf} />
         <div className="grid grid-cols-3 gap-2">
           <Button variant="secondary" size="sm" onClick={share}>
             <Share2 size={13} />

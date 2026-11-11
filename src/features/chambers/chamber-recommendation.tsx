@@ -19,14 +19,14 @@ export function ChamberRecommendation({
       <div className="flex items-start gap-3">
         <span className="chamber-number">{chamber}</span>
         <div className="min-w-0">
-          <p className="mb-1 text-[10px] text-foreground/50">
+          <p className="mb-1 text-xs font-medium text-foreground/65">
             Your next stop · Chamber {chamber}
           </p>
-          <h2 className="text-lg leading-tight">{chambers[chamber]}</h2>
+          <h2 className="text-2xl leading-tight">{chambers[chamber]}</h2>
         </div>
         <MapPin size={17} className="ml-auto shrink-0 opacity-45" />
       </div>
-      <p className="mt-3 text-xs leading-relaxed text-foreground/65">
+      <p className="mt-3 text-sm leading-relaxed text-foreground/70">
         {reason || chamberDetails[chamber].reason}
       </p>
       <details open={expanded || undefined} className="chamber-route">

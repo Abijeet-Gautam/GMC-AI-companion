@@ -24,7 +24,7 @@ export type SceneController = {
   resetView(): void;
   zoom(factor: number): void;
   orbit(horizontal: number, vertical?: number): void;
-  capture(): Promise<Blob>;
+  capture(pixelRatio?: number): Promise<Blob>;
   exportGlb(): Promise<ArrayBuffer>;
   dispose(): void;
 };
@@ -142,7 +142,21 @@ export function createTreeScene(
       ),
     );
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
+    // Keep one continuous sky/ground canvas while framing a portrait tree
+    // above its controls and stories. Zoomed branches can still cross them.
+    const framing = getComputedStyle(host);
+    const frameHeight =
+      (height *
+        (parseFloat(framing.getPropertyValue("--tree-frame-height")) || 100)) /
+      100;
+    const frameTop =
+      (height *
+        (parseFloat(framing.getPropertyValue("--tree-frame-top")) || 0)) /
+      100;
+    camera.clearViewOffset();
+    camera.aspect = width / frameHeight;
+    if (frameHeight !== height || frameTop)
+      camera.setViewOffset(width, frameHeight, 0, -frameTop, width, height);
     const box = model.bounds
       .clone()
       .expandByScalar(0.15)
@@ -236,6 +250,8 @@ export function createTreeScene(
   function configure(next: TreeSettings) {
     if (JSON.stringify(next) === JSON.stringify(settings)) return;
     const liveKeys = new Set([
+      "headline",
+      "acceptingContributions",
       "wind",
       "windSpeed",
       "windDirection",
@@ -363,17 +379,24 @@ export function createTreeScene(
   };
   renderer.domElement.addEventListener("webglcontextlost", lost);
   renderer.setAnimationLoop((now) => render(now));
-  async function capture() {
-    render(performance.now(), true);
-    return new Promise<Blob>((resolve, reject) =>
-      renderer.domElement.toBlob(
-        (blob) =>
-          blob
-            ? resolve(blob)
-            : reject(new Error("Could not capture the tree.")),
-        "image/png",
-      ),
-    );
+  async function capture(pixelRatio = renderer.getPixelRatio()) {
+    const previous = renderer.getPixelRatio();
+    try {
+      renderer.setPixelRatio(Math.max(1, Math.min(3, pixelRatio)));
+      render(performance.now(), true);
+      return await new Promise<Blob>((resolve, reject) =>
+        renderer.domElement.toBlob(
+          (blob) =>
+            blob
+              ? resolve(blob)
+              : reject(new Error("Could not capture the tree.")),
+          "image/png",
+        ),
+      );
+    } finally {
+      renderer.setPixelRatio(previous);
+      dirty = true;
+    }
   }
   async function exportGlb() {
     const { GLTFExporter } =

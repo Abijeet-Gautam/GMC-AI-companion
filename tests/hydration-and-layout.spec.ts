@@ -1,5 +1,42 @@
 import { test, expect } from "@playwright/test";
 
+test("form-filling browser attributes are normalized before hydration", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      /hydrat|didn.t match|Minified React error #4(18|23|25)/i.test(
+        message.text(),
+      )
+    )
+      errors.push(message.text());
+  });
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    const seen = new WeakSet<Element>();
+    const mark = (node: Node) => {
+      if (!(node instanceof Element)) return;
+      for (const element of [node, ...node.querySelectorAll("button,input")]) {
+        if (!element.matches("button,input") || seen.has(element)) continue;
+        seen.add(element);
+        element.setAttribute("fdprocessedid", "extension-injected");
+      }
+    };
+    new MutationObserver((records) =>
+      records.forEach((record) => record.addedNodes.forEach(mark)),
+    ).observe(document, { subtree: true, childList: true });
+  });
+  for (const path of ["/join", "/chambers", "/display"]) {
+    await page.goto(path);
+    await expect(page.locator("#form-attribute-compatibility")).toHaveCount(1);
+    await expect(
+      page.locator('[fdprocessedid="extension-injected"]'),
+    ).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});
+
 for (const width of [1440, 320]) {
   test(`server-rendered pages hydrate cleanly with the SVG fallback at ${width}px`, async ({
     page,

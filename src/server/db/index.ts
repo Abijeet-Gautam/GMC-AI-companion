@@ -49,6 +49,30 @@ db.exec(`CREATE TABLE IF NOT EXISTS visitor_submissions (
  reason TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS visitor_submissions_order ON visitor_submissions(created_at DESC,id DESC);`);
+for (const [column, definition] of [
+  ["owner_key", "TEXT NOT NULL DEFAULT ''"],
+  ["visit_kind", "TEXT NOT NULL DEFAULT 'first'"],
+]) {
+  if (
+    !db
+      .prepare("PRAGMA table_info(visitor_submissions)")
+      .all()
+      .some((row) => row.name === column)
+  )
+    db.exec(
+      `ALTER TABLE visitor_submissions ADD COLUMN ${column} ${definition}`,
+    );
+}
+db.exec(`CREATE TABLE IF NOT EXISTS visitor_profiles (
+ id TEXT PRIMARY KEY, cid_hash TEXT NOT NULL UNIQUE, pin_salt TEXT NOT NULL, pin_hash TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS visitor_profile_leaves (
+ leaf_id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, linked_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS visitor_profile_leaves_profile ON visitor_profile_leaves(profile_id,linked_at DESC);
+CREATE TABLE IF NOT EXISTS visitor_profile_sessions (
+ token_hash TEXT PRIMARY KEY, profile_id TEXT NOT NULL, expires INTEGER NOT NULL
+);`);
 if (
   !db
     .prepare("PRAGMA table_info(visitor_submissions)")
@@ -169,6 +193,8 @@ export function insertLeaf(
     aspiration: string;
     theme: string;
     reply?: string;
+    owner_key?: string;
+    visitor_type?: "first" | "returning";
   },
 ) {
   return transaction(() => {
@@ -308,7 +334,7 @@ function encryptMessage(text: string) {
     .map((value) => value.toString("base64url"))
     .join(".");
 }
-function decryptMessage(value: string) {
+export function decryptMessage(value: string) {
   for (const key of [privateKey, legacyPrivateKey])
     try {
       const [iv, tag, body] = value
@@ -333,14 +359,20 @@ export function rejectedSubmission(key: string) {
   return row ? String(row.reason) : null;
 }
 export function recordSubmission(
-  input: { idempotencyKey: string; aspiration: string; theme: string },
+  input: {
+    idempotencyKey: string;
+    aspiration: string;
+    theme: string;
+    owner_key?: string;
+    visitor_type?: "first" | "returning";
+  },
   outcome: "approved" | "rejected",
   leafId?: string,
   reason = "",
   reply = "",
 ) {
   db.prepare(
-    "INSERT OR IGNORE INTO visitor_submissions(id,idempotency_key,leaf_id,private_message,selected_theme,outcome,reason,created_at,private_reply) VALUES(?,?,?,?,?,?,?,?,?)",
+    "INSERT OR IGNORE INTO visitor_submissions(id,idempotency_key,leaf_id,private_message,selected_theme,outcome,reason,created_at,private_reply,owner_key,visit_kind) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
   ).run(
     randomUUID(),
     input.idempotencyKey,
@@ -351,6 +383,8 @@ export function recordSubmission(
     reason,
     new Date().toISOString(),
     reply ? encryptMessage(reply) : "",
+    input.owner_key || "",
+    input.visitor_type || "first",
   );
 }
 export function replyByKey(key: string): string | null {
@@ -368,6 +402,7 @@ export type PrivateSubmission = {
   leaf_id: string | null;
   message: string;
   selected_theme: Theme;
+  visit_kind: "first" | "returning" | "";
   outcome: "approved" | "rejected";
   reason: string;
   created_at: string;
@@ -381,7 +416,7 @@ export function listSubmissions({
 }: { page?: number; query?: string; outcome?: string } = {}) {
   const rows = db
     .prepare(
-      `SELECT s.id,s.leaf_id,s.private_message,s.selected_theme,s.outcome,s.reason,s.created_at,l.leaf_message,l.status AS leaf_status FROM visitor_submissions s LEFT JOIN approved_leaves l ON l.id=s.leaf_id ORDER BY s.created_at DESC,s.id DESC`,
+      `SELECT s.id,s.leaf_id,s.private_message,s.selected_theme,CASE WHEN s.owner_key='' THEN '' ELSE s.visit_kind END AS visit_kind,s.outcome,s.reason,s.created_at,l.leaf_message,l.status AS leaf_status FROM visitor_submissions s LEFT JOIN approved_leaves l ON l.id=s.leaf_id ORDER BY s.created_at DESC,s.id DESC`,
     )
     .all();
   const all = rows

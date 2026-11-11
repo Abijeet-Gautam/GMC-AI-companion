@@ -48,13 +48,15 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
     setSettings((previous) => ({ ...previous, [key]: value }));
     setNotice("");
   }
-  async function save() {
+  async function save(titleOnly = false) {
     setBusy(true);
     setNotice("");
     try {
       await api("/api/admin/tree", {
-        method: "PUT",
-        body: JSON.stringify(settings),
+        method: titleOnly ? "PATCH" : "PUT",
+        body: JSON.stringify(
+          titleOnly ? { headline: settings.headline } : settings,
+        ),
       });
       setNotice(
         "Tree settings saved. Connected displays will update automatically.",
@@ -85,6 +87,35 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
           </Link>
         </Button>
         <fieldset disabled={!loaded || busy} className="space-y-6">
+          <section className="rounded-3xl bg-muted p-5">
+            <h3 className="text-2xl">Display title</h3>
+            <p className="mb-4 mt-2 text-xs leading-5 text-foreground/60">
+              Change the title shown above the reception tree. Connected
+              displays update automatically.
+            </p>
+            <label className="block text-xs">
+              <span>Title on the screen</span>
+              <input
+                aria-label="Display headline"
+                value={settings.headline}
+                maxLength={90}
+                className="admin-select mt-2"
+                onChange={(event) => change("headline", event.target.value)}
+              />
+            </label>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-[10px] text-foreground/55">
+                {settings.headline.length} / 90
+              </span>
+              <Button
+                size="sm"
+                disabled={!settings.headline.trim() || busy}
+                onClick={() => void save(true)}
+              >
+                Save display title <Save size={14} />
+              </Button>
+            </div>
+          </section>
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="space-y-2 text-xs">
               <span className="block">Tree species</span>
@@ -131,16 +162,6 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
               </select>
             </label>
           </div>
-          <label className="block space-y-2 text-xs">
-            <span>Display headline</span>
-            <input
-              aria-label="Display headline"
-              value={settings.headline}
-              maxLength={90}
-              className="admin-select"
-              onChange={(event) => change("headline", event.target.value)}
-            />
-          </label>
           <label className="block space-y-2 text-xs">
             <span>Growth driver</span>
             <select
@@ -309,7 +330,7 @@ export function TreeSettingsPanel({ leaves }: { leaves: Leaf[] }) {
             </span>
           </label>
           <div className="flex flex-wrap gap-3">
-            <Button onClick={save}>
+            <Button onClick={() => void save()}>
               {busy ? (
                 <LoaderCircle size={15} className="orbit" />
               ) : (

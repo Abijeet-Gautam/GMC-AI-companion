@@ -33,3 +33,20 @@ export async function PUT(request: Request) {
     return errorResponse(error);
   }
 }
+export async function PATCH(request: Request) {
+  try {
+    requireSameOrigin(request);
+    requireAdmin(request);
+    const headline = treeSettingsSchema
+      .pick({ headline: true })
+      .strict()
+      .safeParse(await readJson(request));
+    if (!headline.success)
+      throw new AppError("Use a display title between 1 and 90 characters.");
+    const settings = { ...getTreeSettings(), headline: headline.data.headline };
+    saveTreeSettings(settings);
+    return Response.json({ settings }, { headers: noStore });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

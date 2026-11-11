@@ -18,6 +18,7 @@ type Submission = {
   leaf_id: string | null;
   message: string;
   selected_theme: Theme;
+  visit_kind: "first" | "returning" | "";
   outcome: "approved" | "rejected";
   reason: string;
   created_at: string;
@@ -158,6 +159,13 @@ export function SubmissionManager() {
                       : "Public"}
                 </span>
                 <span>{themeFor(item.selected_theme).short}</span>
+                {item.visit_kind && (
+                  <span className="rounded-full bg-muted px-2 py-1">
+                    {item.visit_kind === "returning"
+                      ? "Returning visit"
+                      : "First visit"}
+                  </span>
+                )}
               </div>
               <time className="text-[10px] text-foreground/50">
                 {new Date(item.created_at).toLocaleString("en-GB", {

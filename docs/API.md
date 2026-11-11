@@ -15,6 +15,8 @@ Mutations accept JSON and reject mismatched browser Origins. Staff mutations req
 
 Themes: `nature`, `innovation`, `education`, `community`, `wellbeing`, `culture`. Aspiration is NFKC-normalized, trimmed, 3–200 characters, without hidden/control characters. Body limit: 4096 bytes. Use one UUID per logical submission and reuse it on retry. Edited content needs a new key. Classification may refine the selected theme.
 
+Optional `visitor_type`: `first` (default) or `returning`, retained only in private staff submission metadata. An authenticated visitor-history cookie links new approved submissions to that profile; CID and PIN never form part of a contribution or AI request.
+
 Success: 201 for a new leaf, 200 for replay. Mismatched content with an old key returns 409; hidden leaves return 410.
 
 ```json
@@ -109,6 +111,7 @@ Success: `{ok:true}`. Seed preserves an existing demo set. Clear deletes only de
 
 - `GET /api/tree/settings`: public `{settings}` for visitor availability and display rendering.
 - `GET /api/admin/tree`: authenticated settings read.
+- `PATCH /api/admin/tree`: authenticated `{headline}` only, trimmed to 1–90 characters. Preserves all other current settings and increments the revision.
 - `PUT /api/admin/tree`: authenticated full `TreeSettings` object, validated in `src/lib/tree-settings.ts`. Returns `{settings}` and increments the public revision so SSE displays update. Invalid settings return 400.
 
 Settings cover species, palette, seed, maturity, density, wind, rotation, quality, renderer, headline and `acceptingContributions`. Pausing returns 503 / `TREE_PAUSED` for new contributions; accepted-key replays can recover existing receipts.
@@ -118,6 +121,18 @@ Extended appearance fields have schema defaults so saved settings from earlier v
 `growthMode` defaults to `contributions`; `leavesForMaturity` defaults to 48 (range 8–500). Approved totals determine the live tree's physical growth and leaf count. `manual` mode uses `age` and `season` for authoring a full canopy. Studio preview counts are browser-only state, excluded from settings and API writes. No reset/delete operation is performed when switching growth modes.
 
 ## Private visitor history
+
+Visitor-facing history uses these separate routes (all responses `no-store`, mutations require same origin):
+
+- `GET /api/visitor?page=1`: `{authenticated,total,page,pages,voices}`. Five voices per page, decrypted original note and reply visible only for that authenticated profile. Unauthenticated reads return no voices. Optional `leafId` returns `linked` for the current profile.
+- `POST /api/visitor` with `{action:"remember",cid,pin,leafId,consent:true}`: creates or unlocks a profile and links a voice owned by the signed anonymous browser cookie. CID must be 11 digits; PIN six digits. Existing profiles require the existing PIN. Unknown public leaf IDs cannot be claimed.
+- `POST /api/visitor` with `{action:"signin",cid,pin}`: unlocks previous linked voices on another browser. Incorrect or missing profiles return the same 401 message. Six attempts per CID lookup and 15 per anonymous browser per 15 minutes.
+- `PATCH /api/visitor` with `{leafId,consent:true}`: signed-in visitors can explicitly connect an unlinked receipt they own in this browser.
+- `DELETE /api/visitor`: revokes the current session. `?forget=true` removes the authenticated profile, its PIN hash, CID lookup, links and all sessions; leaves and staff records remain.
+
+Credential lookups use HMAC-SHA256 with the persistent database session secret, salted scrypt PIN hashes, hashed random session tokens and 12-hour HttpOnly SameSite=Strict cookies (Secure over HTTPS). Identifiers and PINs never enter public APIs, streams, downloads, browser storage or provider requests. This is a self-asserted local profile. Legacy leaves without an ownership key cannot be connected.
+
+## Private staff submissions
 
 Consent now covers private staff review of original words. Successes and moderation rejections are recorded once by idempotency key. Contact-like emails, numbers and links are redacted before AES-256-GCM encryption. Public leaves contain no originals.
 

@@ -1699,6 +1699,320 @@ select:focus-visible {
     max-width: 45%;
   }
 }
+/* Portrait is a stable vertical sequence; landscape keeps its existing overlay layout. */
+@media (max-aspect-ratio: 1/1) {
+  .kiosk-tree {
+    --tree-frame-top: 20;
+    --tree-frame-height: 38;
+  }
+  .kiosk-tree .tree-fallback {
+    top: 20%;
+    height: 38%;
+  }
+  .kiosk-controls {
+    top: 58%;
+    bottom: auto;
+    min-height: 4%;
+    justify-content: center;
+  }
+  .kiosk-controls > span {
+    display: inline;
+  }
+  .kiosk-legend {
+    top: 63%;
+    left: 5%;
+    right: 5%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 4px 18px;
+    height: 3%;
+  }
+  .kiosk-legend button {
+    font-size: clamp(11px, 1.45vmin, 30px);
+    min-height: 26px;
+  }
+  .kiosk-feature {
+    top: 67%;
+    bottom: auto;
+    left: 9%;
+    width: 82%;
+    height: 15%;
+    text-align: center;
+  }
+  .kiosk-feature > div {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: 26px 25px minmax(0, 1fr) 20px 22px;
+    justify-items: center;
+    align-items: center;
+    width: 100%;
+  }
+  .kiosk-leaf-emblem {
+    grid-row: 1;
+  }
+  .kiosk-feature-label {
+    grid-row: 2;
+    margin: 0;
+  }
+  .kiosk-feature blockquote {
+    grid-row: 3;
+    font-size: clamp(20px, 2.8vmin, 56px);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+    max-height: 5.4em;
+  }
+  .kiosk-leaf-code {
+    grid-row: 4;
+    margin: 0;
+  }
+  .kiosk-chamber {
+    grid-row: 5;
+    margin: 0;
+    justify-content: center;
+  }
+  .kiosk-close {
+    right: 0;
+    top: 0;
+  }
+  .kiosk-qr-panel {
+    top: 84%;
+    bottom: auto;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%) !important;
+    max-width: 85%;
+    width: max-content;
+    height: 10%;
+    justify-content: center;
+    flex-direction: row;
+    text-align: left;
+  }
+  .kiosk-qr {
+    width: clamp(90px, 12vmin, 240px);
+  }
+  .kiosk-qr-copy p {
+    display: block;
+  }
+  .kiosk-footer {
+    bottom: 1.5%;
+  }
+  .kiosk-count strong {
+    font-size: clamp(22px, 2.8vmin, 54px);
+  }
+  .kiosk-arrivals {
+    top: 23%;
+  }
+}
+@media (max-aspect-ratio: 1/1) and (max-width: 600px) {
+  .kiosk-tree {
+    --tree-frame-top: 22;
+    --tree-frame-height: 29;
+  }
+  .kiosk-tree .tree-fallback {
+    top: 22%;
+    height: 29%;
+  }
+  .kiosk-controls {
+    top: 51%;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 3px;
+  }
+  .kiosk-controls > span {
+    flex-basis: 100%;
+    text-align: center;
+    margin: 0;
+    font-size: 9px;
+  }
+  .kiosk-controls button {
+    width: 31px;
+    height: 31px;
+  }
+  .kiosk-legend {
+    display: flex;
+    top: 58%;
+    height: 5%;
+    gap: 0 10px;
+  }
+  .kiosk-legend button {
+    font-size: 9px;
+    min-height: 22px;
+    gap: 4px;
+  }
+  .kiosk-feature {
+    top: 65%;
+    height: 17%;
+    left: 6%;
+    width: 88%;
+  }
+  .kiosk-feature > div {
+    grid-template-rows: 16px minmax(0, 1fr) 13px 17px;
+  }
+  .kiosk-leaf-emblem {
+    display: none;
+  }
+  .kiosk-feature-label {
+    grid-row: 1;
+    font-size: 10px;
+  }
+  .kiosk-feature blockquote {
+    grid-row: 2;
+    font-size: 16px;
+  }
+  .kiosk-leaf-code {
+    grid-row: 3;
+    font-size: 8px;
+  }
+  .kiosk-chamber {
+    grid-row: 4;
+    font-size: 9px;
+  }
+  .kiosk-qr-panel {
+    top: 84%;
+    height: 10%;
+    max-width: 88%;
+    gap: 12px;
+  }
+  .kiosk-qr {
+    width: 70px;
+  }
+  .kiosk-qr-copy h2 {
+    font-size: 19px;
+  }
+  .kiosk-qr-copy p {
+    font-size: 10px;
+    margin: 4px 0;
+  }
+  .kiosk-qr-copy > span {
+    font-size: 8px;
+    margin-top: 0;
+  }
+  .kiosk-status {
+    font-size: 7px;
+  }
+}
+.visit-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.visit-choice > div {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: var(--muted);
+  border-radius: 999px;
+}
+.visit-choice button {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 11px;
+  border-radius: 999px;
+}
+.visit-choice button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.visit-choice > a {
+  margin-left: auto;
+}
+.visitor-access {
+  border-radius: 22px;
+  padding: 18px;
+  background: var(--muted);
+}
+.visitor-access.is-invitation {
+  background: var(--accent);
+}
+.visitor-lock {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #ffffff80;
+}
+.visitor-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 8px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  font-size: 14px;
+  outline-offset: 3px;
+}
+.gmc-fact {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 15px;
+  background: var(--card);
+}
+.receipt-tree-card {
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--muted);
+}
+.receipt-tree-stage {
+  height: 260px;
+  position: relative;
+  margin: 12px 0;
+}
+.receipt-tree-canvas {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+.receipt-tree-canvas .tree-marker.is-featured {
+  background: transparent;
+}
+.receipt-tree-canvas .tree-marker.is-featured::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--leaf-color);
+  box-shadow:
+    0 0 0 2px #ffffffa0,
+    0 0 10px 2px var(--leaf-color);
+}
+.receipt-tree-canvas .tree-fallback,
+.receipt-tree-canvas .tree-stage {
+  height: 100%;
+  width: 100%;
+}
+.receipt-tree-canvas .tree-svg {
+  height: 100%;
+  width: 100%;
+}
+.receipt-tree-canvas .tree-fallback {
+  color: #264637;
+  background: #e5efed;
+}
+.chamber-number {
+  width: 52px;
+  height: 52px;
+  font-size: 30px;
+  border-radius: 16px;
+}
+.join-panel .chamber-recommendation {
+  padding: 20px;
+  background: color-mix(in srgb, var(--accent) 25%, var(--muted));
+}
 @media print {
   .no-print {
     display: none !important;

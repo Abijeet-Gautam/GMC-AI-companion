@@ -21,6 +21,7 @@ import { TreeCanvas } from "./tree-canvas";
 import { themes, themeFor, chamberDetails, type Leaf } from "@/lib/catalog";
 import { useTree } from "@/hooks/use-tree";
 import { appUrl } from "@/lib/client";
+import { displayMessage } from "@/lib/display-copy";
 import { defaultTreeSettings, treePalettes } from "@/lib/tree-settings";
 import { AnimatePresence, motion, MotionConfig } from "motion/react";
 import type { SceneController } from "./tree-scene";
@@ -347,9 +348,9 @@ export function DisplayScreen() {
                 </p>
                 <blockquote>
                   {reflection
-                    ? tree!.reflection!.body
+                    ? displayMessage(tree!.reflection!.body)
                     : active
-                      ? `“${active.leaf_message}”`
+                      ? `“${displayMessage(active.leaf_message, 100)}”`
                       : "Every future begins with a hope."}
                 </blockquote>
                 <p className="kiosk-leaf-code">

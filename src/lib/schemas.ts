@@ -22,6 +22,7 @@ export const contributionSchema = z.object({
   theme: themeSchema,
   consent: z.literal(true),
   idempotencyKey: z.string().uuid(),
+  visitor_type: z.enum(["first", "returning"]).default("first"),
 });
 export const aiLeafSchema = z.object({
   safe: z.boolean(),

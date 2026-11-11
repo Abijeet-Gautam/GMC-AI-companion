@@ -22,7 +22,29 @@ export default function PrivacyPage() {
               appear on the tree and a public keepsake page. Anyone with that
               page's link can view it. Your leaf may contribute to a collective
               reflection. Participation is optional and anonymous; we do not ask
-              for a name, account or contact details.
+              for a name or contact details to submit a hope.
+            </p>
+          </section>
+          <section>
+            <h2 className="mb-3 text-2xl text-foreground">
+              Remembering a visit is optional
+            </h2>
+            <p>
+              After submitting, you can choose to connect your voice to your
+              11-digit CID and a private 6-digit PIN. The CID is stored only as
+              a keyed lookup value; the PIN is salted and hashed. Neither is
+              sent to OpenAI, displayed publicly or kept in browser storage.
+              This is a private visit profile, not government identity
+              verification. You need both values to unlock your linked notes and
+              replies on a later visit. Staff cannot recover a forgotten PIN.
+            </p>
+            <p className="mt-3">
+              A private session cookie lasts 12 hours. While signed in, new
+              submissions are connected to your history. Sign out on shared
+              devices. From your history you can remove your profile, its lookup
+              value, PIN and history links; anonymous leaves and staff
+              submission records remain. Private notes removed by staff are no
+              longer available in your history.
             </p>
           </section>
           <section>

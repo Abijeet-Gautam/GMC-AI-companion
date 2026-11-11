@@ -180,7 +180,7 @@ export function offlineReply(note: string, theme: Theme): string {
       "Being able to move around and take part matters at every stage of life. Your message is a useful reminder that a welcoming city needs to consider people with different abilities and needs.",
     ],
     [
-      /\b(?:bus\w*|transport|walk\w*|cycl\w*|traffic|roads?)\b/i,
+      /\b(?:bus\w*|transport|walkable|pedestrian\w*|cycl\w*|traffic|roads?)\b/i,
       "How people move through a city shapes their day, their time and their connection to others. Your hope brings those everyday journeys into the bigger picture.",
     ],
     [

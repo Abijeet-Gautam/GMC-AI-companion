@@ -52,7 +52,10 @@ export function VisitorAccess({
           onUnlocked?.();
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        // Best-effort history check; log but don't block the UI.
+        console.error("Visitor history check failed:", err);
+      });
     return () => {
       alive = false;
     };
@@ -137,7 +140,12 @@ export function VisitorAccess({
             </span>
           )}
           {leafId && !saved && (
-            <Button size="sm" disabled={busy} onClick={() => void connect()} className="w-full sm:w-auto">
+            <Button
+              size="sm"
+              disabled={busy || !consent}
+              onClick={() => void connect()}
+              className="w-full sm:w-auto"
+            >
               Connect this voice to my history
             </Button>
           )}

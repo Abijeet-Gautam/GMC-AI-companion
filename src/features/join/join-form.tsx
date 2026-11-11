@@ -279,7 +279,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               setVisitorType("first");
               setShowHistory(false);
             }}
-            className="min-h-10 shrink-0 rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+            className="min-h-11 shrink-0 rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
           >
             First visit
           </button>
@@ -291,7 +291,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               setVisitorType("returning");
               setShowHistory(true);
             }}
-            className="min-h-10 shrink-0 rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+            className="min-h-11 shrink-0 rounded-full border border-border px-4 py-2 text-sm transition-colors hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
           >
             Returning
           </button>
@@ -429,7 +429,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
               type="button"
               disabled={busy}
               onClick={() => setStep(0)}
-              className="min-h-9 text-[11px] text-foreground/60 hover:underline"
+              className="min-h-10 text-[11px] text-foreground/60 hover:underline"
             >
               Change theme
             </button>
@@ -462,7 +462,7 @@ export function JoinForm({ initialTheme }: { initialTheme?: Theme }) {
             type="button"
             disabled={busy}
             onClick={() => edit(themeFor(theme).prompt)}
-            className="inline-flex min-h-9 items-center gap-2 text-[11px] text-foreground/60 hover:underline"
+            className="inline-flex min-h-10 items-center gap-2 text-[11px] text-foreground/60 hover:underline"
           >
             <Sparkles size={13} />
             Try an example

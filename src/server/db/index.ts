@@ -128,14 +128,11 @@ if (useSqlite) {
       insert into app_meta (key, value) values ('revision', '0') on conflict (key) do nothing;
       insert into app_meta (key, value) values ('session_secret', $1) on conflict (key) do nothing;
     `;
-    pool.query(initSql, [randomBytes(32).toString("hex")]);
-    sessionSecretValue = String(
-      (
-        pool.query(
-          "select value from app_meta where key='session_secret'",
-        ) as unknown as { rows: [{ value: string }] }
-      ).rows[0].value,
+    await pool.query(initSql, [randomBytes(32).toString("hex")]);
+    const secretRow = await pool.query<{ value: string }>(
+      "select value from app_meta where key='session_secret'",
     );
+    sessionSecretValue = String(secretRow.rows[0]?.value ?? "");
   } catch (error) {
     dbInitError = error instanceof Error ? error : new Error(String(error));
     console.error("Database initialization failed:", dbInitError.message);

@@ -33,7 +33,8 @@ export function VisitorVoices() {
       setHistory(null);
       setPage(1);
       setConfirmForget(false);
-      load();
+      // setPage(1) triggers the load effect with the updated page number;
+      // calling load() here would read the stale pre-update page value.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Please try again.");
     } finally {

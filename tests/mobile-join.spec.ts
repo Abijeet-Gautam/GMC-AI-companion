@@ -1,13 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-// ============================================================================
-// MOBILE JOIN FLOW: phone-first redesign (Apple HIG reference)
-// Verifies the /join workflow on a phone viewport (390x844 iPhone SE / 430x932)
-// that a visitor reaches by scanning the QR on the big display screen.
-// ============================================================================
+const MOBILE = { width: 390, height: 844 };
 
 test.describe("Join page on phone (390x844)", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  test.use({ viewport: MOBILE });
 
   test("fits within the viewport with no horizontal overflow", async ({
     page,
@@ -39,12 +35,10 @@ test.describe("Join page on phone (390x844)", () => {
       await expect(page.getByText(name)).toBeVisible();
     }
 
-    // Each theme is a radio option presented as a full-width touch target.
     const nature = page.getByRole("radio", { name: "Nature & sustainability" });
     await expect(nature).toBeVisible();
     const box = await nature.boundingBox();
     if (box) {
-      // Apple HIG: minimum ~44x44 pt touch target.
       expect(box.height).toBeGreaterThanOrEqual(44);
       expect(box.width).toBeGreaterThanOrEqual(44);
     }
@@ -64,17 +58,14 @@ test.describe("Join page on phone (390x844)", () => {
     await page.getByRole("radio", { name: "Education & opportunity" }).check();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
 
-    // Selected theme short value is shown on the step-1 header.
     await expect(page.getByText("Opportunity")).toBeVisible();
 
-    // Change theme returns to step 0.
     await page.getByRole("button", { name: "Change theme" }).click();
     await expect(
       page.getByRole("heading", { name: "What matters to you?" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
 
-    // "Try an example" fills the textarea.
     await page.getByRole("button", { name: "Try an example" }).click();
     await expect(
       page.getByLabel("What is your hope for the city?"),
@@ -85,14 +76,11 @@ test.describe("Join page on phone (390x844)", () => {
       .getByLabel("What is your hope for the city?")
       .fill("I hope every student can learn in a welcoming school.");
 
-    // Character counter is visible.
     await expect(page.getByText(/\d+ \/ 200/)).toBeVisible();
 
-    // Consent checkbox (required) then submit.
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Grow my leaf", exact: true }).click();
 
-    // Advances to the leaf result (step 2).
     await expect(
       page.getByRole("heading", { name: "Your leaf is growing." }),
     ).toBeVisible();
@@ -114,7 +102,6 @@ test.describe("Join page on phone (390x844)", () => {
       page.getByRole("heading", { name: "Your leaf is growing." }),
     ).toBeVisible();
 
-    // All receipt actions visible; on phone they stack vertically.
     await expect(
       page.getByRole("button", { name: "Share leaf", exact: true }),
     ).toBeVisible();
@@ -128,7 +115,6 @@ test.describe("Join page on phone (390x844)", () => {
       page.getByRole("button", { name: "Grow another hope" }),
     ).toBeVisible();
 
-    // Buttons span the full width on mobile.
     const share = page.getByRole("button", { name: "Share leaf", exact: true });
     const shareBox = await share.boundingBox();
     expect(shareBox).not.toBeNull();
@@ -144,27 +130,29 @@ test.describe("Join page on phone (390x844)", () => {
     await expect(page.getByLabel("CID", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Private PIN", { exact: true })).toBeVisible();
 
-    // Numeric keyboard on phone: inputmode numeric.
     const cid = page.getByLabel("CID", { exact: true });
     await expect(cid).toHaveAttribute("inputmode", "numeric");
     const pin = page.getByLabel("Private PIN", { exact: true });
     await expect(pin).toHaveAttribute("inputmode", "numeric");
 
-    // Full-width submit button in the thumb zone.
-    await expect(page.getByRole("button", { name: "Unlock my voices" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Unlock my voices" }),
+    ).toBeVisible();
   });
 });
 
 test.describe("Display screen QR panel is scannable from a phone", () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  test.use({ viewport: MOBILE });
 
   test("QR code and scan instruction are present on /display", async ({
     page,
   }) => {
     await page.goto("/display");
-    // The QR panel links to /join with a scan instruction.
-    await expect(page.getByRole("link", { name: /Scan with your phone/ })).toBeVisible();
-    // Short URL text is shown beneath the QR.
-    await expect(page.getByText(/Scan with your phone\. Share a hope\./)).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Scan with your phone/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Scan with your phone\. Share a hope\./),
+    ).toBeVisible();
   });
 });

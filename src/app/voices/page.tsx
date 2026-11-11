@@ -7,18 +7,33 @@ export const metadata = {
 };
 export default function VoicesPage() {
   return (
-    <div className="join-page">
-      <header className="join-header">
-        <Brand />
-        <Link href="/join" className="text-xs">
-          Add a hope
-        </Link>
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <header className="border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-20">
+        <div className="mx-auto max-w-700 w-full flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <Brand compact />
+          <Link
+            href="/join"
+            className="text-[11px] font-medium text-foreground/60 hover:text-foreground"
+          >
+            Add a hope
+          </Link>
+        </div>
       </header>
-      <main className="mx-auto w-full max-w-2xl px-4 py-8">
+      <main className="flex-1 mx-auto max-w-700 w-full px-4 py-8 sm:px-6 sm:py-12">
         <VisitorVoices />
       </main>
-      <footer className="join-footer">
-        <Link href="/privacy">Participation &amp; privacy</Link>
+      <footer className="border-t border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto max-w-700 w-full flex items-center justify-between gap-4 px-4 py-6 sm:px-6 sm:py-8">
+          <span className="text-[10px] text-foreground/45">
+            Rooted in values. Growing through people.
+          </span>
+          <Link
+            href="/privacy"
+            className="text-[10px] text-foreground/45 underline underline-offset-4"
+          >
+            Participation &amp; privacy
+          </Link>
+        </div>
       </footer>
     </div>
   );

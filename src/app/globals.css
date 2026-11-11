@@ -1034,118 +1034,6 @@ select:focus-visible {
   color: var(--foreground);
   font-size: 13px;
 }
-.join-page {
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-}
-.join-header {
-  width: min(100%, 700px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 auto;
-  padding: 20px;
-}
-.join-main {
-  width: min(100%, 600px);
-  margin: 0 auto;
-  flex: 1;
-  padding: 8px 20px 20px;
-}
-.join-panel {
-  background: var(--card);
-  padding: 25px;
-  border-radius: 26px;
-}
-.join-progress {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 23px;
-}
-.join-progress li {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 10px;
-  opacity: 0.4;
-}
-.join-progress li[aria-current="step"] {
-  opacity: 1;
-}
-.join-progress li > span {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  background: var(--muted);
-  border-radius: 50%;
-}
-.join-progress li[aria-current="step"] > span {
-  background: var(--accent);
-}
-.join-theme {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 78px;
-  padding: 14px;
-  border-radius: 16px;
-  background: var(--muted);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.join-theme.is-selected {
-  background: var(--accent);
-}
-.join-theme:has(input:focus-visible) {
-  outline: 2px solid #697f37;
-  outline-offset: 3px;
-}
-.join-textarea {
-  width: 100%;
-  min-height: 110px;
-  resize: vertical;
-  border-radius: 16px;
-  padding: 14px;
-  background: var(--muted);
-  font-size: 16px;
-  line-height: 1.5;
-}
-.join-privacy {
-  font-size: 10px;
-  color: #25262099;
-}
-.join-privacy summary {
-  cursor: pointer;
-  min-height: 32px;
-  padding: 7px 0;
-}
-.join-privacy p {
-  line-height: 1.8;
-  padding: 10px 0;
-}
-.join-notice {
-  background: #f3ead2;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 15px;
-  font-size: 11px;
-  line-height: 1.6;
-}
-.join-footer {
-  width: min(100%, 600px);
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 22px 18px;
-  font-size: 9px;
-  color: #25262080;
-}
 .private-reply {
   padding: 16px;
   border-radius: 18px;
@@ -1161,10 +1049,6 @@ select:focus-visible {
   border-radius: 20px;
   padding: 18px;
   background: var(--card);
-}
-.join-panel .chamber-recommendation {
-  background: var(--muted);
-  padding: 15px;
 }
 .chamber-number {
   flex-shrink: 0;
@@ -1226,30 +1110,6 @@ select:focus-visible {
   font-size: 9px;
   line-height: 1.5;
   color: #25262080;
-}
-@media (max-width: 400px) {
-  .join-header {
-    padding: 16px;
-  }
-  .join-main {
-    padding: 6px 12px 16px;
-  }
-  .join-panel {
-    padding: 20px;
-    border-radius: 22px;
-  }
-  .join-theme {
-    padding: 11px;
-    gap: 8px;
-    min-height: 75px;
-  }
-  .join-progress {
-    gap: 6px;
-  }
-  .join-progress li {
-    gap: 5px;
-    font-size: 9px;
-  }
 }
 .kiosk-shell {
   position: relative;
@@ -2008,10 +1868,6 @@ select:focus-visible {
   height: 52px;
   font-size: 30px;
   border-radius: 16px;
-}
-.join-panel .chamber-recommendation {
-  padding: 20px;
-  background: color-mix(in srgb, var(--accent) 25%, var(--muted));
 }
 @media print {
   .no-print {

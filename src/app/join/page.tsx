@@ -3,6 +3,14 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { JoinForm } from "@/features/join/join-form";
 import { themeSchema } from "@/lib/schemas";
+
+export const metadata = {
+  title: "Add your hope",
+  description:
+    "Share a hope for Gelephu Mindfulness City and grow a leaf on the Living Tree.",
+  robots: { index: false, follow: false },
+};
+
 export default async function JoinPage({
   searchParams,
 }: {
@@ -11,23 +19,34 @@ export default async function JoinPage({
   const params = await searchParams,
     theme = themeSchema.safeParse(params.theme);
   return (
-    <div className="join-page">
-      <header className="join-header">
-        <Brand />
-        <Link
-          href="/display"
-          className="flex min-h-10 items-center gap-1 text-xs"
-        >
-          Live tree
-          <ArrowUpRight size={13} />
-        </Link>
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      <header className="border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-20">
+        <div className="mx-auto max-w-700 w-full flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <Brand compact />
+          <Link
+            href="/display"
+            className="shrink-0 min-h-10 items-center gap-1 rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground leading-none sm:px-4 sm:text-sm sm:min-h-11"
+          >
+            Live tree
+            <ArrowUpRight size={13} />
+          </Link>
+        </div>
       </header>
-      <main className="join-main">
+      <main className="flex-1 mx-auto max-w-700 w-full px-4 pt-1 pb-4 sm:px-6 sm:pt-8 sm:pb-12">
         <JoinForm initialTheme={theme.success ? theme.data : undefined} />
       </main>
-      <footer className="join-footer">
-        <span>A moment for a shared future.</span>
-        <Link href="/privacy">Participation &amp; privacy</Link>
+      <footer className="border-t border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto max-w-700 w-full flex items-center justify-between gap-4 px-4 py-6 sm:px-6 sm:py-8">
+          <span className="text-[10px] text-foreground/45">
+            A moment for a shared future.
+          </span>
+          <Link
+            href="/privacy"
+            className="text-[10px] text-foreground/45 underline underline-offset-4"
+          >
+            Participation &amp; privacy
+          </Link>
+        </div>
       </footer>
     </div>
   );

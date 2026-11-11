@@ -6,7 +6,8 @@ export function GET(request: Request) {
   let cleanup = () => {};
   const stream = new ReadableStream({
     start(controller) {
-      let last = -1,
+      const lastEventId = request.headers.get("last-event-id");
+      let last = lastEventId ? Number(lastEventId) : -1,
         closed = false,
         ticks = 0;
       const close = () => {
@@ -20,15 +21,14 @@ export function GET(request: Request) {
           /* already cancelled */
         }
       };
-      const send = () => {
+      const send = async () => {
         if (closed) return;
         try {
           const next = revision();
           if (next !== last) {
+            const data = await snapshot();
             controller.enqueue(
-              encoder.encode(
-                `id: ${next}\nevent: tree\ndata: ${JSON.stringify(snapshot())}\n\n`,
-              ),
+              encoder.encode(`id: ${next}\nevent: tree\ndata: ${JSON.stringify(data)}\n\n`),
             );
             last = next;
           } else if (++ticks % 15 === 0)
@@ -37,10 +37,10 @@ export function GET(request: Request) {
           close();
         }
       };
-      const timer = setInterval(send, 750);
+      const timer = setInterval(() => void send(), 750);
       cleanup = close;
       controller.enqueue(encoder.encode("retry: 2000\n\n"));
-      send();
+      void send();
       request.signal.addEventListener("abort", close, { once: true });
       if (request.signal.aborted) close();
     },

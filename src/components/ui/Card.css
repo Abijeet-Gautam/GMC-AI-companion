@@ -1,0 +1,23 @@
+/* Card — rounded surface with subtle border */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+.card:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.card--glow:hover {
+  box-shadow: var(--shadow-glow), var(--shadow-md);
+}
+
+.card--flat {
+  border: none;
+  box-shadow: none;
+}

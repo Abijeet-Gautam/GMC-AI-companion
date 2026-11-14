@@ -1,0 +1,80 @@
+/* Button — shadcn-style, gold accent, dark base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: all 150ms var(--ease-out);
+  font-family: inherit;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Variants */
+.btn--default {
+  background: linear-gradient(120deg, var(--gold) 0%, var(--accent) 100%);
+  color: #1a1210;
+  box-shadow: var(--shadow-glow);
+}
+.btn--default:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 0 40px rgba(217, 180, 90, 0.4);
+}
+
+.btn--outline {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--line-strong);
+}
+.btn--outline:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--gold);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.btn--ghost:hover:not(:disabled) {
+  color: var(--fg);
+  background: var(--surface-2);
+}
+
+.btn--destructive {
+  background: var(--ember);
+  color: #fff;
+}
+.btn--destructive:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+/* Sizes */
+.btn--sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: var(--radius-sm); }
+.btn--md { padding: 0.6rem 1.2rem; }
+.btn--lg { padding: 0.8rem 1.8rem; font-size: 1rem; border-radius: var(--radius-lg); }
+
+/* Loading spinner */
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

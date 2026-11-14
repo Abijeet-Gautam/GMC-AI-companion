@@ -1,0 +1,31 @@
+/* Input — dark surface, gold focus ring */
+.input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-size: 0.9rem;
+  font-family: inherit;
+  line-height: 1.4;
+  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+.input::placeholder { color: var(--muted); }
+
+.input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(217, 180, 90, 0.15);
+}
+
+.input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.input--error {
+  border-color: var(--ember);
+}
+.input--error:focus {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 3px rgba(226, 114, 91, 0.15);
+}

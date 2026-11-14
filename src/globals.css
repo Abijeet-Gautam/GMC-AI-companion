@@ -1,0 +1,366 @@
+/* ========================================
+   L Tree — Global CSS
+   Enhanced base styles and CSS variables with motion support
+   ======================================== */
+
+:root {
+  --bg: #0e0a09;
+  --bg-secondary: #1a1210;
+  --fg: #f5f0eb;
+  --muted: #a89993;
+  --accent: #d4a853;
+  --gold: #c9a841;
+  --text: #e8e4dc;
+  --surface: #16100e;
+  --gold-light: #e8c56a;
+  --gold-dark: #9a7d30;
+}
+
+/* CSS Grid Finchley Subgrid fix for Chrome */
+@supports not (grid: intrinsic-size) {
+  .grid { grid-auto-columns: 1fr; }
+}
+
+/* Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Background blur effect for depth */
+html {
+  background: radial-gradient(ell at 20% 20%, #1a0e0c 0%, #0e0a09 100%);
+  min-height: 100%;
+}
+
+/* Body with subtle texture */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduced motion fallback */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg);
+}
+
+/* Link styles */
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--gold);
+}
+
+/* Button base */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   Page Container
+   ======================================== */
+
+.main-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* ========================================
+   Entrance Animations (Motion-aware)
+   ======================================== */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Reduced motion - disable animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-pulse-glow {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Entrance animation classes */
+.animate-fade-up {
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* ========================================
+   Page Header / Hero
+   ======================================== */
+
+.hero {
+  text-align: center;
+  padding: 3rem 1rem;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.hero h1 {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--fg) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+
+/* ========================================
+   Grid layout
+   ======================================== */
+
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 768px) {
+  .grid-2-col {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+/* ========================================
+   Card styles
+   ======================================== */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--bg-secondary);
+  border-radius: 12px;
+  padding: 2rem;
+  backdrop-filter: blur(10px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(201, 168, 65, 0.15);
+}
+
+/* ========================================
+   Button styles
+   ======================================== */
+
+.btn {
+  display: inline-block;
+  padding: 0.875rem 1.75rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--gold);
+  color: var(--bg);
+}
+
+.btn-primary:hover {
+  background: var(--gold-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(201, 168, 65, 0.3);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+}
+
+.btn-secondary:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ========================================
+   Typographic utilities
+   ======================================== */
+
+.text-gold { color: var(--gold); }
+.text-text { color: var(--text); }
+.text-muted { color: var(--muted); }
+
+/* ========================================
+   Section styles
+   ======================================== */
+
+.section {
+  padding: 3rem 0;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.section-header h2 {
+  font-size: clamp(2rem, 4vw, 2.5rem);
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 0.5rem;
+}
+
+.section-header p {
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+/* ========================================
+   Bento grid (Apple-style tile grid)
+   ======================================== */
+
+.bento-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.bento-grid > * {
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.bento-grid > :hover {
+  transform: translateY(-4px);
+}
+
+.bento-grid .card-1 { grid-row: span 1; }
+.bento-grid .card-2 { grid-row: span 2; }
+.bento-grid .card-3 { grid-row: span 3; }
+
+@media (min-width: 640px) {
+  .bento-grid .card-1 { grid-column: span 1; }
+  .bento-grid .card-2 { grid-column: span 1; }
+  .bento-grid .card-3 { grid-column: span 1; }
+}
+
+@media (min-width: 768px) {
+  .bento-grid .card-1 { grid-column: span 1; }
+  .bento-grid .card-2 { grid-column: span 2; }
+  .bento-grid .card-3 { grid-column: span 1; }
+}
+
+@media (min-width: 1024px) {
+  .bento-grid .card-1 { grid-column: span 1; }
+  .bento-grid .card-2 { grid-column: span 2; }
+  .bento-grid .card-3 { grid-column: span 3; }
+}
+
+/* ========================================
+   Focus-visible utility
+   ======================================== */
+
+.focus-visible:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   Reduced motion fallback
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

@@ -1,0 +1,57 @@
+/* Checkbox — gold accent, custom indicator */
+.checkbox-label {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-indicator {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms var(--ease-out);
+}
+
+.checkbox-check {
+  color: #1a1210;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 150ms var(--ease-out);
+}
+
+.checkbox:checked + .checkbox-indicator {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.checkbox:checked + .checkbox-indicator .checkbox-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.checkbox:focus-visible + .checkbox-indicator {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.checkbox-label-text {
+  user-select: none;
+}

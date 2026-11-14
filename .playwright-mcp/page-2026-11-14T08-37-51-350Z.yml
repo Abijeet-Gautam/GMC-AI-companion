@@ -1,0 +1,69 @@
+- generic [active] [ref=f11e1]:
+  - banner [ref=f11e2]:
+    - generic [ref=f11e3]:
+      - link "L Tree home" [ref=f11e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f11e7]: L Tree
+        - generic [ref=f11e8]: Living wishing tree
+      - navigation "Primary" [ref=f11e9]:
+        - link "The Tree" [ref=f11e10] [cursor=pointer]:
+          - /url: /tree
+        - link "Make a Wish" [ref=f11e11] [cursor=pointer]:
+          - /url: /phone
+  - generic [ref=f11e13]:
+    - generic [ref=f11e14]:
+      - paragraph [ref=f11e15]: A living tree of hopes.
+      - heading "A tree grows. So do our wishes." [level=1] [ref=f11e20]: A tree grows.So do our wishes.
+      - paragraph [ref=f11e21]: Write your aspiration, hang it among the others, and watch it glow in real time — a quiet monument to what people hope for.
+      - generic [ref=f11e22]:
+        - link "Hang your wish" [ref=f11e23] [cursor=pointer]:
+          - /url: /phone
+        - generic [ref=f11e27]: No account. Just your imagination.
+      - paragraph [ref=f11e46]:
+        - strong [ref=f11e47]: 0 wishes
+        - text: taking root.Every voice makes it grow.
+    - generic [ref=f11e48]: Live — new wishes appear in real time
+  - region "How it works" [ref=f11e53]:
+    - generic [ref=f11e54]:
+      - generic [ref=f11e55]:
+        - paragraph [ref=f11e56]: A moment for tomorrow
+        - heading "Your hope has a place here." [level=2] [ref=f11e57]
+      - link "Make it part of the story" [ref=f11e58] [cursor=pointer]:
+        - /url: /phone
+    - generic [ref=f11e61]:
+      - generic [ref=f11e62]:
+        - generic [ref=f11e63]: /01
+        - heading "Write your wish" [level=3] [ref=f11e69]
+        - paragraph [ref=f11e70]: One honest sentence. What do you hope for — for yourself, for someone, for the world?
+      - generic [ref=f11e71]:
+        - generic [ref=f11e72]: /02
+        - heading "Watch it take root" [level=3] [ref=f11e78]
+        - paragraph [ref=f11e79]: Your approved wish becomes a glowing leaf on our shared tree, visible to everyone.
+      - generic [ref=f11e80]:
+        - generic [ref=f11e81]: /03
+        - heading "Read the reflection" [level=3] [ref=f11e87]
+        - paragraph [ref=f11e88]: Each leaf carries a short, sourced line from the world’s wisdom literature.
+  - region "Canopy themes" [ref=f11e89]:
+    - generic [ref=f11e90]:
+      - generic [ref=f11e91]:
+        - generic [ref=f11e92]:
+          - paragraph [ref=f11e93]: Many branches. One shared future.
+          - heading "What matters to you?" [level=2] [ref=f11e94]
+        - paragraph [ref=f11e95]: A thriving tree starts with the things we care about.
+      - generic [ref=f11e96]:
+        - link "Ember Dusk" [ref=f11e97] [cursor=pointer]:
+          - /url: /phone?theme=ember
+        - link "Jade Dawn" [ref=f11e104] [cursor=pointer]:
+          - /url: /phone?theme=jade
+        - link "Violet Night" [ref=f11e111] [cursor=pointer]:
+          - /url: /phone?theme=violet
+        - link "Rose Forest" [ref=f11e118] [cursor=pointer]:
+          - /url: /phone?theme=rose
+  - contentinfo [ref=f11e125]:
+    - generic [ref=f11e126]:
+      - generic [ref=f11e130]:
+        - strong [ref=f11e131]: L Tree
+        - text: — every leaf is a wish.
+      - generic [ref=f11e132]: Grown with care · wishes are screened with kindness
+  - button "Open Next.js Dev Tools" [ref=f11e138] [cursor=pointer]
+  - alert [ref=f11e142]

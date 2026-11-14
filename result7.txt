@@ -1,0 +1,8 @@
+npm notice run l-tree@1.0.0 npx
+npm notice run tsc --noEmit
+src/components/keepsake/LeafMeta.tsx(32,31): error TS18048: 'category.secondary.length' is possibly 'undefined'.
+src/components/keepsake/LeafMeta.tsx(32,69): error TS18047: 'category.secondary' is possibly 'null'.
+src/lib/db.ts(199,3): error TS2322: Type '{ id: string; position: number; body: string; color: string | null; leafShape: string | null; createdAt: string; messageStatus: string; aspirationCategory: { primary: string; secondary: string[] | null; reason: string; }; treeName: string; treeSlug: string; } | null' is not assignable to type 'KeepsakeLeaf | null'.
+  Type '{ id: string; position: number; body: string; color: string | null; leafShape: string | null; createdAt: string; messageStatus: string; aspirationCategory: { primary: string; secondary: string[] | null; reason: string; }; treeName: string; treeSlug: string; }' is not assignable to type 'KeepsakeLeaf'.
+    Types of property 'messageStatus' are incompatible.
+      Type 'string' is not assignable to type 'MessageStatus'.

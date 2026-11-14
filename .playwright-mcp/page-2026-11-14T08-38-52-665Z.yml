@@ -1,0 +1,61 @@
+- generic [active] [ref=f12e1]:
+  - banner [ref=f12e2]:
+    - generic [ref=f12e3]:
+      - link "L Tree home" [ref=f12e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f12e7]: L Tree
+        - generic [ref=f12e8]: Living wishing tree
+      - navigation "Primary" [ref=f12e9]:
+        - link "The Tree" [ref=f12e10] [cursor=pointer]:
+          - /url: /tree
+        - link "Make a Wish" [ref=f12e11] [cursor=pointer]:
+          - /url: /phone
+  - banner [ref=f12e12]:
+    - generic [ref=f12e13]: The Living Tree
+    - heading "Every leaf is a wish." [level=1] [ref=f12e14]
+    - paragraph [ref=f12e15]: Watch the canopy glow and read what strangers hope for.
+  - main [ref=f12e16]:
+    - generic [ref=f12e17]:
+      - region "The living tree" [ref=f12e18]:
+        - generic [ref=f12e19]:
+          - img "A glowing wishing tree at dusk with luminous leaves" [ref=f12e21]
+          - generic:
+            - generic [ref=f12e22]: Ember Dusk
+            - generic [ref=f12e24]:
+              - status [ref=f12e25]: Connecting
+              - button "Enter fullscreen" [ref=f12e27] [cursor=pointer]
+          - generic [ref=f12e33]: 0 wishes glowing · live
+        - toolbar "Tree controls" [ref=f12e35]:
+          - generic [ref=f12e36]: Live canopy — wishes bloom as they’re planted
+          - button "Send a breeze through the tree" [ref=f12e37] [cursor=pointer]
+          - button "Pause tree rotation" [pressed] [ref=f12e42] [cursor=pointer]
+          - button "Zoom in on the tree" [ref=f12e46] [cursor=pointer]
+          - button "Zoom out of the tree" [ref=f12e48] [cursor=pointer]
+          - button "Reset the tree view" [ref=f12e50] [cursor=pointer]
+        - region "A wish from the tree" [ref=f12e54]:
+          - blockquote [ref=f12e55]:
+            - generic [ref=f12e56]: A wish taking root
+            - paragraph [ref=f12e59]: Every future begins with a hope.
+      - complementary [ref=f12e60]:
+        - generic [ref=f12e61]:
+          - heading "Grow your leaf." [level=2] [ref=f12e62]
+          - paragraph [ref=f12e63]: Scan. Share a hope. Watch it grow.
+          - figure "QR code linking to http://localhost:3000/phone?tree=global" [ref=f12e64]:
+            - img "QR code to http://localhost:3000/phone?tree=global" [ref=f12e65]
+            - generic: l-tree · global canopy
+          - link "Hang a leaf" [ref=f12e66] [cursor=pointer]:
+            - /url: /phone?tree=global
+        - region "Fresh on the branches" [ref=f12e67]:
+          - heading "Fresh on the branches" [level=3] [ref=f12e68]
+          - generic [ref=f12e70]:
+            - generic [ref=f12e73]: No wishes on the tree yet. Be the first to hang a leaf.
+            - link "Plant a wish" [ref=f12e74] [cursor=pointer]:
+              - /url: /phone
+        - paragraph [ref=f12e75]: Anonymous voices. Shared possibilities.
+  - contentinfo [ref=f12e76]:
+    - generic [ref=f12e77]:
+      - generic [ref=f12e81]:
+        - strong [ref=f12e82]: L Tree
+        - text: — every leaf is a wish.
+      - generic [ref=f12e83]: Grown with care · wishes are screened with kindness
+  - button "Open Next.js Dev Tools" [ref=f12e89] [cursor=pointer]

@@ -1,0 +1,22 @@
+{
+  "name": "wishing-tree",
+  "short_name": "Wishing Tree",
+  "description": "Submit your aspiration and see it appear on the tree",
+  "start_url": "/phone?mode=standalone",
+  "display": "standalone",
+  "background_color": "#fff",
+  "theme_color": "#ffd166",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

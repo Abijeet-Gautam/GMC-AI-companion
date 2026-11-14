@@ -1,0 +1,129 @@
+import * as THREE from 'three/webgpu'
+import {
+  float,
+  neutralToneMapping,
+  dot,
+  Fn,
+  mix,
+  normalWorld,
+  output,
+  smoothstep,
+  step,
+  uniform,
+  vec3,
+  vec4,
+} from 'three/tsl'
+import { swayedWood } from './wind.js'
+import { grownWood } from './regenerate.js'
+import { swept } from './transition.js'
+import { holographic } from './hologram.js'
+
+// Cel shading as in trungduyng's Blender anime tree tutorial ("the tutorial" in
+// these comments): a Diffuse BSDF read back as a colour (Shader to RGB) and
+// pushed through a colour ramp. The tutorial's Diffuse is albedo 0.8 under a
+// sun of strength 5.77. Blender's diffuse is albedo x sun x cos / pi, and so is
+// three's Lambert under a directional light of that intensity. Here a
+// hemisphere light fills the shadows too, and the lights have colours: the ramp
+// picks its band from how bright the light is, and the band is then tinted by
+// the light's colour
+
+// The tutorial's Diffuse's albedo, which the ramps' band edges expect
+export const ALBEDO = 0.8
+
+export const sunDirection = uniform(new THREE.Vector3(0, 1, 0))
+
+export const sun = new THREE.DirectionalLight('#fff3df', 5.01)
+sun.castShadow = true
+sun.shadow.mapSize.set(2048, 2048)
+sun.shadow.camera.left = sun.shadow.camera.bottom = -10
+sun.shadow.camera.right = sun.shadow.camera.top = 10
+sun.shadow.camera.near = 1
+sun.shadow.camera.far = 60
+sun.shadow.bias = -0.0005
+sun.shadow.normalBias = 0.02
+
+// Sky above, ground bounce below, lighting what the sun doesn't reach
+export const hemisphere = new THREE.HemisphereLight('#bfd8ff', '#6b5a45', 1)
+
+// What a shadow does to the sunlight it blocks: darkness 1 takes it all the
+// way to the shadow colour, 0 leaves it untouched. Black at 1 is a plain
+// shadow; a colour tints it. Both change with the theme, swept in
+export const shadowColor = uniform(new THREE.Color('#2e3b5c'))
+export const shadowDarkness = uniform(0.75)
+const shownShadowColor = swept(shadowColor)
+const shownDarkness = swept(shadowDarkness)
+export const tintShadow = Fn(([shadow]) => mix(mix(vec3(1), shownShadowColor, shownDarkness), vec3(1), shadow))
+
+// A Blender colour ramp with constant interpolation, from [position, colour]
+// stops in order: each colour holds until the next stop, no blending, so the
+// bands are hard-edged cel
+function ramp(value, stops) {
+  let color = stops[0][1]
+  for (let i = 1; i < stops.length; i++) {
+    const [at, next] = stops[i]
+    color = mix(color, next, step(at, value))
+  }
+  return color
+}
+
+// The lit value through a ramp, tinted by the light's colour: the band comes
+// from the light's brightness, the tint from its hue (none where no light
+// reaches, so the darkest band keeps its own colour)
+export const LUMA = vec3(0.2126, 0.7152, 0.0722)
+export function celShade(stops) {
+  const value = dot(output.rgb, LUMA)
+  const tint = mix(vec3(1), output.rgb.div(value.max(1e-4)), smoothstep(0, 0.02, value))
+  return ramp(value, stops).mul(tint)
+}
+
+// Neutral tone mapping, done in the materials of the tree and leaves rather
+// than over the whole frame, so the background and the floor's shadow keep
+// exactly the colours picked
+const EXPOSURE = 1
+export const toneMapped = (color) => neutralToneMapping(color, float(EXPOSURE))
+
+// A linear colour as a uniform, so the panel can change it
+export function linear(r, g, b) {
+  return uniform(new THREE.Color().setRGB(r, g, b))
+}
+
+// A lit surface read back through a ramp: Lambert under the lights, with
+// their shadows, is the tutorial's Diffuse + Shader to RGB
+function celMaterial(stops) {
+  const material = new THREE.MeshLambertNodeMaterial({ color: new THREE.Color().setRGB(ALBEDO, ALBEDO, ALBEDO) })
+  material.outputNode = vec4(holographic(toneMapped(celShade(stops)), normalWorld), output.a)
+  material.receivedShadowNode = tintShadow
+  return material
+}
+
+// The tutorial's trunk: a three-stop brown ramp, its colours open to the panel
+export const barkColors = [linear(0.031, 0.027, 0.024), linear(0.074, 0.061, 0.042), linear(0.148, 0.117, 0.068)]
+export const BARK_STOPS = [0, 0.497, 1] // where each of them starts
+
+export function barkMaterial() {
+  const material = celMaterial(BARK_STOPS.map((at, i) => [at, swept(barkColors[i])]))
+  // The wood grows from the ground, and sways with the wind, more towards
+  // the top, and more down what hangs
+  material.positionNode = swayedWood(grownWood())
+  // The shadow map draws the wood's own faces, not its back ones (the
+  // renderer's default), so its shadow sits where the wood is
+  material.shadowSide = THREE.FrontSide
+  return material
+}
+
+// A model's own colour, cel shaded in the bark's bands: its colour in the
+// light, darker in the mid band and darker again in the shadow. It keeps
+// its colour through every theme, only tinted by the light, as the wood is
+const PROP_BANDS = [0.25, 0.55, 1] // each band's colour / the model's own
+export function propMaterial(color) {
+  return celMaterial(BARK_STOPS.map((at, i) => [at, vec3(color.r, color.g, color.b).mul(PROP_BANDS[i])]))
+}
+
+// The floor draws nothing but the tree's shadow, in the shadow colour at its
+// darkness, so it always melts into the background
+export function groundMaterial() {
+  const material = new THREE.ShadowNodeMaterial()
+  material.colorNode = shownShadowColor
+  material.opacityNode = shownDarkness
+  return material
+}

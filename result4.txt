@@ -1,0 +1,16 @@
+npm notice run l-tree@1.0.0 npx
+npm notice run tsc --noEmit
+src/app/tree/page.tsx(24,54): error TS2304: Cannot find name 'MessageStatus'.
+src/app/tree/page.tsx(26,51): error TS2339: Property 'primary' does not exist on type '{}'.
+src/app/tree/page.tsx(26,113): error TS2339: Property 'secondary' does not exist on type '{}'.
+src/app/tree/page.tsx(26,182): error TS2339: Property 'reason' does not exist on type '{}'.
+src/components/keepsake/LeafMeta.tsx(31,5): error TS18047: 'category' is possibly 'null'.
+src/components/keepsake/LeafMeta.tsx(32,12): error TS18047: 'category' is possibly 'null'.
+src/components/keepsake/LeafMeta.tsx(32,31): error TS18047: 'category' is possibly 'null'.
+src/components/keepsake/LeafMeta.tsx(32,31): error TS18048: 'category.secondary.length' is possibly 'undefined'.
+src/components/keepsake/LeafMeta.tsx(32,69): error TS18047: 'category' is possibly 'null'.
+src/components/keepsake/LeafMeta.tsx(32,69): error TS18047: 'category.secondary' is possibly 'null'.
+src/lib/db.ts(228,26): error TS2339: Property 'message_status' does not exist on type '{ id: string; position: number; body: string; color: string | null; leaf_shape: string | null; created_at: string; aspiration_category: unknown; tree_name: string; tree_slug: string; }'.
+src/lib/db.ts(230,46): error TS2339: Property 'primary' does not exist on type '{}'.
+src/lib/db.ts(230,107): error TS2339: Property 'secondary' does not exist on type '{}'.
+src/lib/db.ts(230,158): error TS2339: Property 'reason' does not exist on type '{}'.

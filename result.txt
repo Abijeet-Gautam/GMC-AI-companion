@@ -1,0 +1,3 @@
+npm notice run l-tree@1.0.0 npx
+npm notice run tsc --noEmit
+src/lib/db.ts(237,1): error TS1160: Unterminated template literal.

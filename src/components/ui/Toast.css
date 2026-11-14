@@ -1,0 +1,37 @@
+/* Toast — floating notification, color-coded by type */
+.toast {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-md);
+  font-size: 0.9rem;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toast-icon {
+  font-weight: bold;
+  width: 18px;
+  text-align: center;
+}
+
+.toast--success { border-color: rgba(100, 200, 100, 0.4); }
+.toast--success .toast-icon { color: #6bcf6b; }
+
+.toast--info { border-color: rgba(100, 180, 255, 0.4); }
+.toast--info .toast-icon { color: #6bb4ff; }
+
+.toast--warning { border-color: rgba(255, 200, 100, 0.4); }
+.toast--warning .toast-icon { color: #ffc864; }
+
+.toast--error { border-color: rgba(255, 100, 100, 0.4); }
+.toast--error .toast-icon { color: #ff6464; }

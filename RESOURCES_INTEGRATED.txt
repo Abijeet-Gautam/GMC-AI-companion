@@ -1,0 +1,9 @@
+Wishing Tree — Resources Integrated
+
+Neon DB URL: postgresql://neondb_owner:npg_nLVm1U7gAiYl@ep-lucky-poetry-bewcmcfc-pooler.c-9.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+
+AI API: sk-c7fd15fbaf0aea24-2391a6-c7c4750b at https://pension-acutely-ride.ngrok-free.dev/v1
+
+GitHub tree model: just-a-simple-tree (6 procedural 3.js species, GLB/sprite/LOD exports)
+
+Core app intact: /tree, /phone routes, real-time polling, RLS, Clerk auth, rate limiting, PWA, README
